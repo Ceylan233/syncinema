@@ -1,0 +1,18 @@
+services:
+  syncinema:
+    build: .
+    container_name: syncinema
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    environment:
+      NODE_ENV: production
+      PORT: 3100
+      CHAT_HISTORY_FILE: /data/chat-history.json
+      PLAYBACK_ACTIVITY_FILE: /data/playback-activity.json
+      SENSITIVE_WORDS_FILE: /data/sensitive-words.json
+    volumes:
+      - syncinema-data:/data
+
+volumes:
+  syncinema-data:
