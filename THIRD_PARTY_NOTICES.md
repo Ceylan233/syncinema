@@ -1,13 +1,13 @@
-# Third-party notices
+# 第三方声明
 
 ## SyncTV
 
-Parts of Syncinema's playback, room, proxy, Bilibili, live playback, and synchronization design are derived from or informed by [SyncTV](https://github.com/synctv-org/synctv), licensed under GNU AGPL-3.0. Syncinema is distributed under the same license.
+Syncinema 的部分播放、房间、代理、哔哩哔哩、直播和同步设计源自或参考了 [SyncTV](https://github.com/synctv-org/synctv)。SyncTV 使用 GNU AGPL-3.0 许可证，本项目继续采用相同许可证发布。
 
 ## valorant-daily-shop-email
 
-The public-IP email notifier follows the SMTP environment-variable and `smtplib.SMTP_SSL` pattern from [Ceylan233/valorant-daily-shop-email](https://github.com/Ceylan233/valorant-daily-shop-email), licensed under the MIT License, Copyright (c) 2026 Ceylan233.
+公网 IP 邮件提醒功能参考了 [Ceylan233/valorant-daily-shop-email](https://github.com/Ceylan233/valorant-daily-shop-email) 的 SMTP 环境变量及 `smtplib.SMTP_SSL` 实现方式。原项目使用 MIT 许可证，Copyright (c) 2026 Ceylan233。
 
-## Bundled libraries
+## 内置依赖
 
-Frontend and server dependencies retain their respective upstream licenses. See `package.json`, `package-lock.json`, and files under `client/vendor`.
+前端和服务端依赖保留各自上游许可证。具体依赖请查看 `package.json`、`package-lock.json` 以及 `client/vendor` 目录中的文件。

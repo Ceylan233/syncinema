@@ -1,10 +1,10 @@
-# iStoreOS one-click deployment
+# iStoreOS 一键部署
 
-This deployment uses Docker on an ARM64 N1 box. Syncinema listens on N1 port `3100`, leaving the iStoreOS administration ports unchanged.
+该部署方案适用于运行 iStoreOS/OpenWrt 的 ARM64 N1 盒子。Syncinema 使用 N1 的 `3100` 端口，不会修改 iStoreOS 的管理端口。
 
-## Install
+## 安装
 
-Install Docker from the iStoreOS app store first, then run over SSH:
+先在 iStoreOS 应用商店安装 Docker，然后通过 SSH 执行：
 
 ```sh
 wget -qO /tmp/install-syncinema.sh \
@@ -12,11 +12,11 @@ wget -qO /tmp/install-syncinema.sh \
 sh /tmp/install-syncinema.sh
 ```
 
-Open `http://N1-LAN-IP:3100/`. For temporary public access, forward an external TCP port to `N1-LAN-IP:3100`.
+安装完成后访问 `http://N1局域网IP:3100/`。需要临时公网访问时，将一个外部 TCP 端口映射到 `N1局域网IP:3100`。
 
-## Public-IP email notification
+## 公网 IP 邮件提醒
 
-Edit `/mnt/data/syncinema/ip-monitor.env`. `MAIL_PASS` must be the SMTP authorization code, not the mailbox login password.
+编辑 `/mnt/data/syncinema/ip-monitor.env`。`MAIL_PASS` 必须填写邮箱的 SMTP 授权码，不是邮箱登录密码。
 
 ```sh
 vi /mnt/data/syncinema/ip-monitor.env
@@ -24,9 +24,9 @@ sh /mnt/data/syncinema/source/deploy/istoreos/start-ip-monitor.sh
 docker logs -f syncinema-ip-monitor
 ```
 
-The notifier checks every five minutes and stores the previous address in `/mnt/data/syncinema/runtime/ip-monitor/public-ip.txt`.
+监控程序每五分钟检查一次公网 IP，并将上一次地址保存在 `/mnt/data/syncinema/runtime/ip-monitor/public-ip.txt`。
 
-## Manage
+## 常用管理命令
 
 ```sh
 docker logs -f syncinema

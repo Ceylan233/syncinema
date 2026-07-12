@@ -1,8 +1,8 @@
 # Syncinema 1.6.0 - 2026-07-12
 
-- Promotes the completed 1.5 experiment to the v1.6 release.
-- Uses the proven v1.4 playback synchronization behavior with the newer room, danmaku, source, Bilibili, live playback, moderation, and weak-network features.
-- Keeps the complete mobile fullscreen player controls in portrait and landscape modes.
-- Adds bounded server speed testing that remains responsive on slow links.
-- Adds Windows local-host deployment and dynamic public IPv4 monitoring support.
-- Adds iStoreOS/OpenWrt deployment support.
+- 将完成的 1.5 实验版本升级为 v1.6 正式版。
+- 保留经过验证的 v1.4 播放同步机制，并加入新版房间、弹幕、在线片源、哔哩哔哩、直播、内容管理及弱网处理功能。
+- 手机横屏和竖屏全屏模式均保留完整播放器控制栏。
+- 增加有限速保护的服务器测速功能，慢速网络下也能保持响应。
+- 增加 Windows 本地部署及动态公网 IPv4 邮件监控。
+- 增加 iStoreOS/OpenWrt 部署支持。

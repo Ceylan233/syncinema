@@ -1,33 +1,33 @@
-# Syncinema HTTPS
+# Syncinema HTTPS 部署
 
-Syncinema can run over HTTPS when a certificate is configured.
+配置证书后，Syncinema 可以直接通过 HTTPS 运行。
 
-## Local HTTPS on Windows
+## Windows 本地 HTTPS
 
-Generate a local certificate for this PC and LAN IP:
+为当前电脑和局域网 IP 生成本地证书：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\create-https-cert.ps1 -Ip 192.168.2.132
 ```
 
-Start the HTTPS server:
+启动 HTTPS 服务：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\start-https.ps1
 ```
 
-Open:
+访问地址：
 
 ```text
 https://localhost:3100/
 https://192.168.2.132:3100/
 ```
 
-For mobile browsers, install and trust `certs\privatecinema-local.cer` on the phone if the certificate warning blocks microphone access.
+如果证书警告导致手机浏览器无法使用麦克风，需要在手机上安装并信任 `certs\privatecinema-local.cer`。
 
-## Custom Certificate
+## 使用已有证书
 
-You can also start with PEM files:
+使用 PEM 证书：
 
 ```powershell
 $env:HTTPS_KEY_PATH="C:\path\privkey.pem"
@@ -35,7 +35,7 @@ $env:HTTPS_CERT_PATH="C:\path\fullchain.pem"
 npm start
 ```
 
-Or with a PFX file:
+使用 PFX 证书：
 
 ```powershell
 $env:HTTPS_PFX_PATH="C:\path\certificate.pfx"

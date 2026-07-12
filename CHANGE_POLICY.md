@@ -1,10 +1,11 @@
-# Change Policy
+# 变更策略
 
-Syncinema 1.0 is the baseline release.
+Syncinema 1.0 是项目的基础版本。
 
-From this point forward, changes should be additive by default:
-- Add new features without removing existing ones.
-- Keep existing UI controls and workflows unless the user explicitly asks to remove or redesign them.
-- Preserve existing API routes and socket events unless the user explicitly approves a breaking change.
-- Prefer compatibility shims over deletion when behavior changes.
-- Only delete, downgrade, or remove behavior when the user clearly says to do so.
+后续修改默认遵循以下原则：
+
+- 新增功能时尽量不移除已有功能。
+- 除非用户明确要求删除或重新设计，否则保留现有界面控件和操作流程。
+- 除非用户明确同意不兼容变更，否则保留已有 API 路由和 Socket 事件。
+- 行为变化时优先提供兼容处理，而不是直接删除旧逻辑。
+- 只有收到明确要求时，才删除、降级或移除已有行为。
