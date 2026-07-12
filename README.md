@@ -54,20 +54,85 @@ docker compose up -d --build
 
 ## 环境变量
 
-所有环境变量均为可选项。直接使用 Node.js 部署时，在启动命令前设置；使用 Docker 部署时，在 `compose.yaml` 的 `environment` 中设置。
+所有环境变量均为可选项，不填写即可按默认配置运行。
 
-| 环境变量 | 说明 | 默认值 |
-| --- | --- | --- |
-| `PORT` | 服务监听端口 | `3100` |
-| `CORS_ORIGIN` | 允许访问服务的来源 | `*` |
-| `SENSITIVE_ADMIN_PASSWORD` | 敏感词管理密码；未设置时关闭管理入口 | 未设置 |
-| `CHAT_HISTORY_FILE` | 房间聊天记录文件路径 | `server/chat-history.json` |
-| `PLAYBACK_ACTIVITY_FILE` | 播放操作记录文件路径 | `server/playback-activity.json` |
-| `SENSITIVE_WORDS_FILE` | 敏感词数据文件路径 | `server/sensitive-words.json` |
-| `ICE_SERVERS_JSON` | WebRTC ICE 服务器配置，使用 JSON 数组格式 | 内置 STUN |
-| `TURN_URLS` | TURN 服务地址，多个地址使用逗号分隔 | 未设置 |
-| `TURN_USERNAME` | TURN 用户名 | 未设置 |
-| `TURN_CREDENTIAL` | TURN 密码 | 未设置 |
+| 环境变量 | 说明 | 默认值 | 示例 |
+| --- | --- | --- | --- |
+| `PORT` | 服务监听端口 | `3100` | `8080` |
+| `CORS_ORIGIN` | 允许访问服务的网站来源，需要包含协议和域名 | `*` | `https://syncinema.example.com` |
+| `SENSITIVE_ADMIN_PASSWORD` | 敏感词管理密码；留空时关闭管理入口 | 留空 | `请设置一个长密码` |
+| `CHAT_HISTORY_FILE` | 房间聊天记录文件路径 | `server/chat-history.json` | `/opt/syncinema/chat-history.json` |
+| `PLAYBACK_ACTIVITY_FILE` | 播放操作记录文件路径 | `server/playback-activity.json` | `/opt/syncinema/playback-activity.json` |
+| `SENSITIVE_WORDS_FILE` | 敏感词数据文件路径 | `server/sensitive-words.json` | `/opt/syncinema/sensitive-words.json` |
+| `ICE_SERVERS_JSON` | 完整的 WebRTC ICE 服务器配置，填写单行 JSON 数组 | 内置 STUN | 见下方示例 |
+| `TURN_URLS` | TURN 地址，多个地址使用英文逗号分隔 | 留空 | `turn:turn.example.com:3478?transport=udp` |
+| `TURN_USERNAME` | TURN 用户名 | 留空 | `syncinema` |
+| `TURN_CREDENTIAL` | TURN 密码 | 留空 | `TURN 服务密码` |
+
+### Docker 填写方法
+
+复制示例文件：
+
+```bash
+cp .env.example .env
+```
+
+然后编辑 `.env`。没有 TURN 服务时，保持 TURN 相关项目为空：
+
+```dotenv
+PORT=3100
+CORS_ORIGIN=https://syncinema.example.com
+SENSITIVE_ADMIN_PASSWORD=请替换为你自己的长密码
+
+ICE_SERVERS_JSON=
+TURN_URLS=turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp
+TURN_USERNAME=syncinema
+TURN_CREDENTIAL=请填写TURN服务密码
+```
+
+保存后重新启动：
+
+```bash
+docker compose up -d --build
+```
+
+`.env` 已被 Git 忽略，不要把真实密码提交到公开仓库。
+
+### Windows PowerShell 填写方法
+
+环境变量只在当前 PowerShell 窗口中生效：
+
+```powershell
+$env:PORT="3100"
+$env:CORS_ORIGIN="https://syncinema.example.com"
+$env:SENSITIVE_ADMIN_PASSWORD="请替换为你自己的长密码"
+$env:TURN_URLS="turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp"
+$env:TURN_USERNAME="syncinema"
+$env:TURN_CREDENTIAL="请填写TURN服务密码"
+npm run deploy
+```
+
+### Linux 填写方法
+
+```bash
+PORT=3100 \
+CORS_ORIGIN='https://syncinema.example.com' \
+SENSITIVE_ADMIN_PASSWORD='请替换为你自己的长密码' \
+TURN_URLS='turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp' \
+TURN_USERNAME='syncinema' \
+TURN_CREDENTIAL='请填写TURN服务密码' \
+npm run deploy
+```
+
+### ICE JSON 示例
+
+已经有完整 ICE 配置时，可以只填写 `ICE_SERVERS_JSON`，无需再填写 `TURN_URLS`、`TURN_USERNAME` 和 `TURN_CREDENTIAL`：
+
+```dotenv
+ICE_SERVERS_JSON=[{"urls":"stun:stun.example.com:3478"},{"urls":["turn:turn.example.com:3478?transport=udp","turn:turn.example.com:3478?transport=tcp"],"username":"syncinema","credential":"请填写TURN服务密码"}]
+```
+
+Docker 已将聊天记录、操作记录和敏感词数据保存在数据卷中，一般不需要修改三个文件路径变量。
 
 公网正式使用时，请为域名配置 HTTPS；具体方法见 [HTTPS 部署说明](HTTPS.md)。
 
@@ -85,4 +150,4 @@ sh /tmp/install-syncinema.sh
 
 ## 许可证
 
-本项目采用 GNU Affero General Public License v3.0 许可证。部分播放、房间、代理和同步设计源自或参考了 [SyncTV](https://github.com/synctv-org/synctv)。请只共享你有权访问和传播的媒体内容，并自行遵守当地法律法规及第三方服务条款。
+本项目采用 GNU Affero General Public License v3.0 许可证。请只共享你有权访问和传播的媒体内容，并自行遵守当地法律法规及第三方服务条款。

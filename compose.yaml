@@ -4,10 +4,16 @@ services:
     container_name: syncinema
     restart: unless-stopped
     ports:
-      - "3100:3100"
+      - "${PORT:-3100}:${PORT:-3100}"
     environment:
       NODE_ENV: production
-      PORT: 3100
+      PORT: "${PORT:-3100}"
+      CORS_ORIGIN: "${CORS_ORIGIN:-*}"
+      SENSITIVE_ADMIN_PASSWORD: "${SENSITIVE_ADMIN_PASSWORD:-}"
+      ICE_SERVERS_JSON: "${ICE_SERVERS_JSON:-}"
+      TURN_URLS: "${TURN_URLS:-}"
+      TURN_USERNAME: "${TURN_USERNAME:-}"
+      TURN_CREDENTIAL: "${TURN_CREDENTIAL:-}"
       CHAT_HISTORY_FILE: /data/chat-history.json
       PLAYBACK_ACTIVITY_FILE: /data/playback-activity.json
       SENSITIVE_WORDS_FILE: /data/sensitive-words.json
