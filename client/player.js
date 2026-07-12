@@ -38,6 +38,9 @@ export class CinemaPlayer extends EventTarget {
     this.feedbackTimer = null;
     this.seekBlockedTimer = null;
     this.seekSyncTimer = null;
+    this.keyboardSeekTimer = null;
+    this.keyboardSeekTarget = null;
+    this.keyboardSeekDelta = 0;
     this.localVideoId = null;
     this.userSyncUntil = 0;
     this.remoteAutoplayWanted = false;
@@ -1295,7 +1298,7 @@ export class CinemaPlayer extends EventTarget {
   }
 
   markUserSync(duration = 1200) {
-    this.userSyncUntil = Date.now() + duration;
+    this.userSyncUntil = Math.max(Number(this.userSyncUntil || 0), Date.now() + duration);
   }
 
   isIndependentPlayerInteraction(eventName) {
@@ -1639,7 +1642,31 @@ export class CinemaPlayer extends EventTarget {
     event.preventDefault();
     event.stopPropagation();
     this.showControls(true);
-    this.seekRelative(event.key === "ArrowLeft" ? -10 : 10);
+    this.queueKeyboardSeek(event.key === "ArrowLeft" ? -10 : 10);
+  }
+
+  queueKeyboardSeek(seconds) {
+    if (this.isLiveSource() || !Number.isFinite(this.video.duration) || this.video.duration <= 0) return;
+    this.markUserSync(2500);
+    const baseTime = Number.isFinite(this.keyboardSeekTarget)
+      ? this.keyboardSeekTarget
+      : this.video.currentTime || 0;
+    this.keyboardSeekTarget = Math.min(this.video.duration, Math.max(0, baseTime + seconds));
+    this.keyboardSeekDelta += seconds;
+    const delta = this.keyboardSeekDelta;
+    this.showFeedback(delta >= 0 ? `快进 ${delta}s` : `快退 ${Math.abs(delta)}s`);
+
+    window.clearTimeout(this.keyboardSeekTimer);
+    this.keyboardSeekTimer = window.setTimeout(() => {
+      const targetTime = this.keyboardSeekTarget;
+      this.keyboardSeekTimer = null;
+      this.keyboardSeekTarget = null;
+      this.keyboardSeekDelta = 0;
+      if (!Number.isFinite(targetTime)) return;
+      this.markUserSync(2500);
+      this.video.currentTime = targetTime;
+      if (!this.applyingRemote) this.scheduleSeekSync("skip", 120);
+    }, 500);
   }
 
   unlockVideoAudio() {

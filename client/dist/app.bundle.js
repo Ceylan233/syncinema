@@ -15923,6 +15923,9 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     this.feedbackTimer = null;
     this.seekBlockedTimer = null;
     this.seekSyncTimer = null;
+    this.keyboardSeekTimer = null;
+    this.keyboardSeekTarget = null;
+    this.keyboardSeekDelta = 0;
     this.localVideoId = null;
     this.userSyncUntil = 0;
     this.remoteAutoplayWanted = false;
@@ -17072,7 +17075,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     this.emitSync(reason, { userIntent: true });
   }
   markUserSync(duration = 1200) {
-    this.userSyncUntil = Date.now() + duration;
+    this.userSyncUntil = Math.max(Number(this.userSyncUntil || 0), Date.now() + duration);
   }
   isIndependentPlayerInteraction(eventName) {
     const nativeFullscreen = this.nativePlayerActive || Boolean(this.video.webkitDisplayingFullscreen);
@@ -17375,7 +17378,27 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     event.preventDefault();
     event.stopPropagation();
     this.showControls(true);
-    this.seekRelative(event.key === "ArrowLeft" ? -10 : 10);
+    this.queueKeyboardSeek(event.key === "ArrowLeft" ? -10 : 10);
+  }
+  queueKeyboardSeek(seconds) {
+    if (this.isLiveSource() || !Number.isFinite(this.video.duration) || this.video.duration <= 0) return;
+    this.markUserSync(2500);
+    const baseTime = Number.isFinite(this.keyboardSeekTarget) ? this.keyboardSeekTarget : this.video.currentTime || 0;
+    this.keyboardSeekTarget = Math.min(this.video.duration, Math.max(0, baseTime + seconds));
+    this.keyboardSeekDelta += seconds;
+    const delta = this.keyboardSeekDelta;
+    this.showFeedback(delta >= 0 ? `快进 ${delta}s` : `快退 ${Math.abs(delta)}s`);
+    window.clearTimeout(this.keyboardSeekTimer);
+    this.keyboardSeekTimer = window.setTimeout(() => {
+      const targetTime = this.keyboardSeekTarget;
+      this.keyboardSeekTimer = null;
+      this.keyboardSeekTarget = null;
+      this.keyboardSeekDelta = 0;
+      if (!Number.isFinite(targetTime)) return;
+      this.markUserSync(2500);
+      this.video.currentTime = targetTime;
+      if (!this.applyingRemote) this.scheduleSeekSync("skip", 120);
+    }, 500);
   }
   unlockVideoAudio() {
     if (this.userVolume <= 0) return;
@@ -17972,6 +17995,15 @@ var SyncController = class {
     const isScheduledOwnAction = Boolean(
       isSelf && Number(state.executeAt || 0) > 0 && state.reason !== "heartbeat"
     );
+    if (this.isActiveOwnSeek(state, isSelf)) {
+      this.lastSeenVersion = Math.max(this.lastSeenVersion, state.version);
+      if (this.scheduledState && Number(this.scheduledState.version || 0) <= Number(state.version || 0)) {
+        window.clearTimeout(this.scheduledTimer);
+        this.scheduledTimer = null;
+        this.scheduledState = null;
+      }
+      return false;
+    }
     if (isSelf && !isScheduledOwnAction) {
       this.lastSeenVersion = Math.max(this.lastSeenVersion, state.version);
       return false;
@@ -17985,6 +18017,15 @@ var SyncController = class {
     this.lastSeenVersion = state.version;
     this.applyOrSchedule(state);
     return true;
+  }
+  isActiveOwnSeek(state, knownSelf = null) {
+    const by = state?.by || {};
+    const isSelf = knownSelf ?? Boolean(
+      this.clientId && (by.clientId && by.clientId === this.clientId || by.id && by.id === this.clientId)
+    );
+    return Boolean(
+      isSelf && ["seek-release", "skip"].includes(String(state?.reason || "")) && Date.now() < Number(this.player.userSyncUntil || 0)
+    );
   }
   receiveCorrection(state) {
     if (!state?.hasVideo || !Number.isFinite(state.version)) return false;
@@ -18016,6 +18057,7 @@ var SyncController = class {
       this.scheduledTimer = null;
       this.scheduledState = null;
       if (!scheduled || this.player.meta?.id !== scheduled.videoId) return;
+      if (this.isActiveOwnSeek(scheduled)) return;
       this.applyRemote({
         ...scheduled,
         executeAt: 0,

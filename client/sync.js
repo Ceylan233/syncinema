@@ -154,6 +154,15 @@ export class SyncController {
       Number(state.executeAt || 0) > 0 &&
       state.reason !== "heartbeat"
     );
+    if (this.isActiveOwnSeek(state, isSelf)) {
+      this.lastSeenVersion = Math.max(this.lastSeenVersion, state.version);
+      if (this.scheduledState && Number(this.scheduledState.version || 0) <= Number(state.version || 0)) {
+        window.clearTimeout(this.scheduledTimer);
+        this.scheduledTimer = null;
+        this.scheduledState = null;
+      }
+      return false;
+    }
     if (isSelf && !isScheduledOwnAction) {
       this.lastSeenVersion = Math.max(this.lastSeenVersion, state.version);
       return false;
@@ -167,6 +176,19 @@ export class SyncController {
     this.lastSeenVersion = state.version;
     this.applyOrSchedule(state);
     return true;
+  }
+
+  isActiveOwnSeek(state, knownSelf = null) {
+    const by = state?.by || {};
+    const isSelf = knownSelf ?? Boolean(
+      this.clientId &&
+        ((by.clientId && by.clientId === this.clientId) || (by.id && by.id === this.clientId))
+    );
+    return Boolean(
+      isSelf &&
+      ["seek-release", "skip"].includes(String(state?.reason || "")) &&
+      Date.now() < Number(this.player.userSyncUntil || 0)
+    );
   }
 
   receiveCorrection(state) {
@@ -203,6 +225,7 @@ export class SyncController {
       this.scheduledTimer = null;
       this.scheduledState = null;
       if (!scheduled || this.player.meta?.id !== scheduled.videoId) return;
+      if (this.isActiveOwnSeek(scheduled)) return;
       this.applyRemote({
         ...scheduled,
         executeAt: 0,

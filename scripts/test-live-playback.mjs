@@ -79,11 +79,37 @@ let healthTick = null;
 let relayTriggered = false;
 globalThis.window = {
   clearInterval() {},
+  clearTimeout,
+  setTimeout,
   setInterval(callback) {
     healthTick = callback;
     return 1;
   }
 };
+
+player.meta = { id: "vod-test", live: false };
+player.video.duration = 100;
+player.video.currentTime = 10;
+player.applyingRemote = false;
+player.userSyncUntil = 0;
+player.keyboardSeekTimer = null;
+player.keyboardSeekTarget = null;
+player.keyboardSeekDelta = 0;
+let keyboardSyncs = 0;
+player.scheduleSeekSync = (reason) => {
+  assert.equal(reason, "skip");
+  keyboardSyncs += 1;
+};
+player.queueKeyboardSeek(10);
+player.queueKeyboardSeek(10);
+assert.equal(player.video.currentTime, 10, "repeated keyboard seeks must not restart decoding for every key event");
+await new Promise((resolve) => setTimeout(resolve, 220));
+assert.equal(player.video.currentTime, 10, "keyboard seek bursts must stay open across normal key-repeat gaps");
+assert.equal(keyboardSyncs, 0, "keyboard seek bursts must not publish an intermediate target");
+await new Promise((resolve) => setTimeout(resolve, 330));
+assert.equal(player.video.currentTime, 30, "repeated keyboard seeks must accumulate into one target");
+assert.equal(keyboardSyncs, 1, "repeated keyboard seeks must publish one final seek");
+
 player.meta = { id: "live-test", live: true, provider: "bilibili" };
 player.video.paused = false;
 player.video.currentTime = 0;
