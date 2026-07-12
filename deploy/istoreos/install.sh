@@ -2,9 +2,9 @@
 set -eu
 
 REPOSITORY="${SYNCINEMA_REPOSITORY:-Ceylan233/syncinema}"
-VERSION="${SYNCINEMA_VERSION:-v1.6.0}"
+VERSION="${SYNCINEMA_VERSION:-main}"
 APP_DIR="${APP_DIR:-/mnt/data/syncinema}"
-SOURCE_URL="https://github.com/$REPOSITORY/archive/refs/tags/$VERSION.tar.gz"
+SOURCE_URL="https://github.com/$REPOSITORY/archive/$VERSION.tar.gz"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required. Install and start Docker from the iStoreOS app store first." >&2
@@ -16,7 +16,7 @@ case "$APP_DIR" in
   *) echo "APP_DIR must be under /mnt/data or /opt." >&2; exit 1 ;;
 esac
 
-mkdir -p "$APP_DIR/runtime/ip-monitor" "$APP_DIR/runtime/app" "$APP_DIR/source"
+mkdir -p "$APP_DIR/runtime/app" "$APP_DIR/source"
 archive="/tmp/syncinema-$VERSION.tar.gz"
 echo "Downloading $SOURCE_URL"
 wget -O "$archive" "$SOURCE_URL"
@@ -34,9 +34,6 @@ if [ ! -f "$APP_DIR/app.env" ]; then
   password="$(head -c 64 /dev/urandom | sha256sum | cut -c 1-24)"
   sed -i "s/replace-with-a-long-random-password/$password/" "$APP_DIR/app.env"
   echo "Generated moderation password: $password"
-fi
-if [ ! -f "$APP_DIR/ip-monitor.env" ]; then
-  cp "$APP_DIR/source/deploy/istoreos/ip-monitor.env.example" "$APP_DIR/ip-monitor.env"
 fi
 if [ ! -f "$APP_DIR/runtime/app/chat-history.json" ]; then
   printf '{"rooms":{}}\n' >"$APP_DIR/runtime/app/chat-history.json"
@@ -66,5 +63,3 @@ docker run -d \
 
 lan_ip="$(ip -4 addr show br-lan 2>/dev/null | awk '/inet / { sub(/\/.*/, "", $2); print $2; exit }')"
 echo "Syncinema is running at http://${lan_ip:-N1-LAN-IP}:3100/"
-echo "Configure mail in $APP_DIR/ip-monitor.env, then run:"
-echo "  sh $APP_DIR/source/deploy/istoreos/start-ip-monitor.sh"
