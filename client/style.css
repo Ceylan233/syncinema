@@ -4927,6 +4927,16 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
   .video-frame.pseudo-fullscreen .controls > * {
     min-height: 36px !important;
   }
+
+  .video-frame:fullscreen #onlineSourceButton,
+  .video-frame:-webkit-full-screen #onlineSourceButton,
+  .video-frame.pseudo-fullscreen #onlineSourceButton {
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
 }
 
 @media (max-width: 860px) and (orientation: landscape) {

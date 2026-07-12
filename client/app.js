@@ -36,6 +36,11 @@ const sync = new SyncController(room, player, () => shouldSendPlaybackHeartbeat(
   hasSource: uploader.owns(player.meta?.id) || activeVideoMeta?.sourceType === "online"
 }), (state) => applyIncomingPlayback(state), () => room.clientId());
 
+const openSourceModal = async () => {
+  await player.exitFullscreenForDialog();
+  ui.openSourceModal();
+};
+
 const HOST_WAIT_BUFFER_SECONDS = 2;
 const HOST_WAIT_MAX_MS = 8000;
 const HOST_WAIT_COOLDOWN_MS = 5000;
@@ -821,8 +826,8 @@ function wireUI() {
     }
   });
 
-  ui.onlineSourceButton?.addEventListener("click", () => ui.openSourceModal());
-  ui.emptyOnlineSourceButton?.addEventListener("click", () => ui.openSourceModal());
+  ui.onlineSourceButton?.addEventListener("click", () => openSourceModal());
+  ui.emptyOnlineSourceButton?.addEventListener("click", () => openSourceModal());
   ui.sourceClose?.addEventListener("click", () => ui.closeSourceModal());
 
   document.addEventListener("click", (event) => {
@@ -1138,7 +1143,7 @@ async function handleChatCommand(text, senderName) {
 
   if (["/vod", "/dianbo"].includes(command)) {
     if (isLockedDemoRoom()) return true;
-    ui.openSourceModal();
+    await openSourceModal();
     return true;
   }
 

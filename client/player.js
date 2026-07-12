@@ -403,6 +403,49 @@ export class CinemaPlayer extends EventTarget {
     }
   }
 
+  async exitFullscreenForDialog() {
+    let changed = false;
+
+    if (this.pseudoFullscreen) {
+      this.exitPseudoFullscreen();
+      changed = true;
+    }
+
+    if (this.video.webkitDisplayingFullscreen || this.nativePlayerActive) {
+      changed = true;
+      const ended = new Promise((resolve) => {
+        let timer = null;
+        const finish = () => {
+          window.clearTimeout(timer);
+          this.video.removeEventListener?.("webkitendfullscreen", finish);
+          resolve();
+        };
+        this.video.addEventListener?.("webkitendfullscreen", finish, { once: true });
+        timer = window.setTimeout(finish, 450);
+      });
+      try {
+        this.video.webkitExitFullscreen?.();
+      } catch {
+        // The timeout still lets the dialog open on partial WebKit implementations.
+      }
+      await ended;
+    }
+
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      changed = true;
+      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.webkitCancelFullScreen;
+      try {
+        await exit?.call(document);
+      } catch {
+        // Opening the dialog is still preferable if a browser reports a stale fullscreen state.
+      }
+    }
+
+    if (!changed) return;
+    this.unlockOrientation();
+    await new Promise((resolve) => window.setTimeout(resolve, 40));
+  }
+
   enterPseudoFullscreen() {
     if (!this.pseudoFullscreenHome) {
       this.pseudoFullscreenHome = {
@@ -1631,6 +1674,7 @@ export class CinemaPlayer extends EventTarget {
       document.addEventListener(eventName, unlock, { passive: true, capture: true });
     });
     document.addEventListener("keydown", (event) => this.handleGlobalKeydown(event), { capture: true });
+    document.addEventListener("keyup", (event) => this.handleGlobalKeyup(event), { capture: true });
   }
 
   handleGlobalKeydown(event) {
@@ -1645,6 +1689,12 @@ export class CinemaPlayer extends EventTarget {
     this.queueKeyboardSeek(event.key === "ArrowLeft" ? -10 : 10);
   }
 
+  handleGlobalKeyup(event) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    if (!Number.isFinite(this.keyboardSeekTarget)) return;
+    this.scheduleKeyboardSeekCommit(220);
+  }
+
   queueKeyboardSeek(seconds) {
     if (this.isLiveSource() || !Number.isFinite(this.video.duration) || this.video.duration <= 0) return;
     this.markUserSync(2500);
@@ -1656,17 +1706,23 @@ export class CinemaPlayer extends EventTarget {
     const delta = this.keyboardSeekDelta;
     this.showFeedback(delta >= 0 ? `快进 ${delta}s` : `快退 ${Math.abs(delta)}s`);
 
+    this.scheduleKeyboardSeekCommit(1200);
+  }
+
+  scheduleKeyboardSeekCommit(delay) {
     window.clearTimeout(this.keyboardSeekTimer);
-    this.keyboardSeekTimer = window.setTimeout(() => {
-      const targetTime = this.keyboardSeekTarget;
-      this.keyboardSeekTimer = null;
-      this.keyboardSeekTarget = null;
-      this.keyboardSeekDelta = 0;
-      if (!Number.isFinite(targetTime)) return;
-      this.markUserSync(2500);
-      this.video.currentTime = targetTime;
-      if (!this.applyingRemote) this.scheduleSeekSync("skip", 120);
-    }, 500);
+    this.keyboardSeekTimer = window.setTimeout(() => this.commitKeyboardSeek(), delay);
+  }
+
+  commitKeyboardSeek() {
+    const targetTime = this.keyboardSeekTarget;
+    this.keyboardSeekTimer = null;
+    this.keyboardSeekTarget = null;
+    this.keyboardSeekDelta = 0;
+    if (!Number.isFinite(targetTime)) return;
+    this.markUserSync(2500);
+    this.video.currentTime = targetTime;
+    if (!this.applyingRemote) this.scheduleSeekSync("skip", 120);
   }
 
   unlockVideoAudio() {

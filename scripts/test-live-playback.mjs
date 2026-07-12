@@ -87,6 +87,33 @@ globalThis.window = {
   }
 };
 
+let pseudoExitCount = 0;
+let nativeExitCount = 0;
+let orientationUnlockCount = 0;
+globalThis.document = {
+  fullscreenElement: {},
+  webkitFullscreenElement: null,
+  async exitFullscreen() {
+    nativeExitCount += 1;
+    this.fullscreenElement = null;
+  }
+};
+const fullscreenPlayer = Object.create(CinemaPlayer.prototype);
+fullscreenPlayer.pseudoFullscreen = true;
+fullscreenPlayer.nativePlayerActive = false;
+fullscreenPlayer.video = { webkitDisplayingFullscreen: false };
+fullscreenPlayer.exitPseudoFullscreen = () => {
+  pseudoExitCount += 1;
+  fullscreenPlayer.pseudoFullscreen = false;
+};
+fullscreenPlayer.unlockOrientation = () => {
+  orientationUnlockCount += 1;
+};
+await fullscreenPlayer.exitFullscreenForDialog();
+assert.equal(pseudoExitCount, 1, "opening a dialog must leave pseudo fullscreen");
+assert.equal(nativeExitCount, 1, "opening a dialog must leave browser fullscreen");
+assert.equal(orientationUnlockCount, 1, "opening a dialog must release landscape orientation");
+
 player.meta = { id: "vod-test", live: false };
 player.video.duration = 100;
 player.video.currentTime = 10;
@@ -103,12 +130,24 @@ player.scheduleSeekSync = (reason) => {
 player.queueKeyboardSeek(10);
 player.queueKeyboardSeek(10);
 assert.equal(player.video.currentTime, 10, "repeated keyboard seeks must not restart decoding for every key event");
-await new Promise((resolve) => setTimeout(resolve, 220));
+await new Promise((resolve) => setTimeout(resolve, 520));
 assert.equal(player.video.currentTime, 10, "keyboard seek bursts must stay open across normal key-repeat gaps");
 assert.equal(keyboardSyncs, 0, "keyboard seek bursts must not publish an intermediate target");
-await new Promise((resolve) => setTimeout(resolve, 330));
-assert.equal(player.video.currentTime, 30, "repeated keyboard seeks must accumulate into one target");
-assert.equal(keyboardSyncs, 1, "repeated keyboard seeks must publish one final seek");
+player.queueKeyboardSeek(10);
+player.handleGlobalKeyup({ key: "ArrowRight" });
+await new Promise((resolve) => setTimeout(resolve, 260));
+assert.equal(player.video.currentTime, 40, "releasing a repeated key must commit the accumulated target");
+assert.equal(keyboardSyncs, 1, "releasing a repeated key must publish one final seek");
+
+player.video.currentTime = 40;
+player.queueKeyboardSeek(10);
+player.handleGlobalKeyup({ key: "ArrowRight" });
+await new Promise((resolve) => setTimeout(resolve, 100));
+player.queueKeyboardSeek(10);
+player.handleGlobalKeyup({ key: "ArrowRight" });
+await new Promise((resolve) => setTimeout(resolve, 260));
+assert.equal(player.video.currentTime, 60, "rapid separate key presses must remain one seek transaction");
+assert.equal(keyboardSyncs, 2, "rapid separate key presses must publish only their final target");
 
 player.meta = { id: "live-test", live: true, provider: "bilibili" };
 player.video.paused = false;

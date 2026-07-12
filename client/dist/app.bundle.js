@@ -16260,6 +16260,42 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
       await this.lockLandscape();
     }
   }
+  async exitFullscreenForDialog() {
+    let changed = false;
+    if (this.pseudoFullscreen) {
+      this.exitPseudoFullscreen();
+      changed = true;
+    }
+    if (this.video.webkitDisplayingFullscreen || this.nativePlayerActive) {
+      changed = true;
+      const ended = new Promise((resolve2) => {
+        let timer = null;
+        const finish = () => {
+          window.clearTimeout(timer);
+          this.video.removeEventListener?.("webkitendfullscreen", finish);
+          resolve2();
+        };
+        this.video.addEventListener?.("webkitendfullscreen", finish, { once: true });
+        timer = window.setTimeout(finish, 450);
+      });
+      try {
+        this.video.webkitExitFullscreen?.();
+      } catch {
+      }
+      await ended;
+    }
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      changed = true;
+      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.webkitCancelFullScreen;
+      try {
+        await exit?.call(document);
+      } catch {
+      }
+    }
+    if (!changed) return;
+    this.unlockOrientation();
+    await new Promise((resolve2) => window.setTimeout(resolve2, 40));
+  }
   enterPseudoFullscreen() {
     if (!this.pseudoFullscreenHome) {
       this.pseudoFullscreenHome = {
@@ -17368,6 +17404,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
       document.addEventListener(eventName, unlock, { passive: true, capture: true });
     });
     document.addEventListener("keydown", (event) => this.handleGlobalKeydown(event), { capture: true });
+    document.addEventListener("keyup", (event) => this.handleGlobalKeyup(event), { capture: true });
   }
   handleGlobalKeydown(event) {
     if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
@@ -17380,6 +17417,11 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     this.showControls(true);
     this.queueKeyboardSeek(event.key === "ArrowLeft" ? -10 : 10);
   }
+  handleGlobalKeyup(event) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    if (!Number.isFinite(this.keyboardSeekTarget)) return;
+    this.scheduleKeyboardSeekCommit(220);
+  }
   queueKeyboardSeek(seconds) {
     if (this.isLiveSource() || !Number.isFinite(this.video.duration) || this.video.duration <= 0) return;
     this.markUserSync(2500);
@@ -17388,17 +17430,21 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     this.keyboardSeekDelta += seconds;
     const delta = this.keyboardSeekDelta;
     this.showFeedback(delta >= 0 ? `快进 ${delta}s` : `快退 ${Math.abs(delta)}s`);
+    this.scheduleKeyboardSeekCommit(1200);
+  }
+  scheduleKeyboardSeekCommit(delay) {
     window.clearTimeout(this.keyboardSeekTimer);
-    this.keyboardSeekTimer = window.setTimeout(() => {
-      const targetTime = this.keyboardSeekTarget;
-      this.keyboardSeekTimer = null;
-      this.keyboardSeekTarget = null;
-      this.keyboardSeekDelta = 0;
-      if (!Number.isFinite(targetTime)) return;
-      this.markUserSync(2500);
-      this.video.currentTime = targetTime;
-      if (!this.applyingRemote) this.scheduleSeekSync("skip", 120);
-    }, 500);
+    this.keyboardSeekTimer = window.setTimeout(() => this.commitKeyboardSeek(), delay);
+  }
+  commitKeyboardSeek() {
+    const targetTime = this.keyboardSeekTarget;
+    this.keyboardSeekTimer = null;
+    this.keyboardSeekTarget = null;
+    this.keyboardSeekDelta = 0;
+    if (!Number.isFinite(targetTime)) return;
+    this.markUserSync(2500);
+    this.video.currentTime = targetTime;
+    if (!this.applyingRemote) this.scheduleSeekSync("skip", 120);
   }
   unlockVideoAudio() {
     if (this.userVolume <= 0) return;
@@ -38944,6 +38990,10 @@ var sync = new SyncController(room, player, () => shouldSendPlaybackHeartbeat(),
   bufferedAhead: measuredBufferedAhead(),
   hasSource: uploader.owns(player.meta?.id) || activeVideoMeta?.sourceType === "online"
 }), (state) => applyIncomingPlayback(state), () => room.clientId());
+var openSourceModal = async () => {
+  await player.exitFullscreenForDialog();
+  ui.openSourceModal();
+};
 var REMOTE_CONTROL_REASONS = /* @__PURE__ */ new Set([
   "remote-play-click",
   "remote-pause-click",
@@ -39603,8 +39653,8 @@ function wireUI() {
       event.target.value = "";
     }
   });
-  ui.onlineSourceButton?.addEventListener("click", () => ui.openSourceModal());
-  ui.emptyOnlineSourceButton?.addEventListener("click", () => ui.openSourceModal());
+  ui.onlineSourceButton?.addEventListener("click", () => openSourceModal());
+  ui.emptyOnlineSourceButton?.addEventListener("click", () => openSourceModal());
   ui.sourceClose?.addEventListener("click", () => ui.closeSourceModal());
   document.addEventListener("click", (event) => {
     if (event.target.closest?.("#danmakuToggleButton")) {
@@ -39891,7 +39941,7 @@ async function handleChatCommand(text, senderName) {
   }
   if (["/vod", "/dianbo"].includes(command)) {
     if (isLockedDemoRoom()) return true;
-    ui.openSourceModal();
+    await openSourceModal();
     return true;
   }
   if (command.startsWith("/room")) {
