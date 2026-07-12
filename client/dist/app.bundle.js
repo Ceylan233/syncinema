@@ -18266,7 +18266,7 @@ var DialogLayer = {
           </div>
 
           <div class="source-grid">
-            <section class="source-section">
+            <section class="source-section source-import-panel">
               <h3>片源</h3>
               <form id="sourceImportForm" class="source-import-form">
                 <textarea
@@ -18291,7 +18291,7 @@ var DialogLayer = {
               </div>
             </section>
 
-            <section class="source-section">
+            <section class="source-section source-search-panel">
               <h3>搜索</h3>
               <form id="sourceSearchForm" class="source-search-form">
                 <input id="sourceSearchInput" type="search" placeholder="输入番剧/影片名称" />
@@ -18314,7 +18314,7 @@ var DialogLayer = {
               </div>
             </section>
 
-            <section class="source-section">
+            <section class="source-section source-direct-panel">
               <h3>直链</h3>
               <form id="sourceDirectForm" class="source-direct-form">
                 <input
@@ -18324,7 +18324,16 @@ var DialogLayer = {
                 />
                 <button class="secondary-button" type="submit" :disabled="state.source.busy">直接点播</button>
               </form>
-              <h3>选集</h3>
+            </section>
+
+            <section
+              v-show="state.source.chapters.length || (state.source.chapterGroups && state.source.chapterGroups.length)"
+              class="source-section source-episodes-panel"
+            >
+              <div class="source-episodes-head">
+                <h3>选集</h3>
+                <span v-if="state.source.chapters.length">共 {{ state.source.chapters.length }} 集</span>
+              </div>
               <div
                 id="sourceRoads"
                 class="source-roads"
@@ -38814,7 +38823,7 @@ var SourceManager = class {
       const response = await fetch("/api/source/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url2, referer: url2 })
+        body: JSON.stringify({ url: url2, referer: url2, inspectOnly: true })
       });
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.ok) throw new Error(result?.error || "解析播放地址失败");
@@ -38832,7 +38841,7 @@ var SourceManager = class {
         chapters,
         chapterGroups: chapters.length ? [{ id: "bilibili-pages", name: "分P", chapters }] : [],
         activeChapterGroupId: chapters.length ? "bilibili-pages" : "",
-        status: chapters.length > 1 ? `已解析，共 ${chapters.length} 个分P` : "直链已解析"
+        status: chapters.length > 1 ? `已解析，共 ${chapters.length} 个分P，请选择播放` : chapters.length === 1 ? "已解析，请选择 P1 播放" : "直链已解析"
       });
       return resolved;
     } catch (error) {
@@ -39700,8 +39709,9 @@ function wireUI() {
     event.preventDefault();
     try {
       const resolved = await sourceManager.resolveDirectUrl(ui.sourceDirectInput.value);
-      await switchToOnlineSource(resolved);
       ui.sourceDirectInput.value = "";
+      if (resolved.provider === "bilibili" && !resolved.live && resolved.inspectOnly) return;
+      await switchToOnlineSource(resolved);
       ui.closeSourceModal();
     } catch (error) {
       ui.addSystemMessage(error.message || "直链点播失败");

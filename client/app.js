@@ -878,8 +878,9 @@ function wireUI() {
     event.preventDefault();
     try {
       const resolved = await sourceManager.resolveDirectUrl(ui.sourceDirectInput.value);
-      await switchToOnlineSource(resolved);
       ui.sourceDirectInput.value = "";
+      if (resolved.provider === "bilibili" && !resolved.live && resolved.inspectOnly) return;
+      await switchToOnlineSource(resolved);
       ui.closeSourceModal();
     } catch (error) {
       ui.addSystemMessage(error.message || "直链点播失败");

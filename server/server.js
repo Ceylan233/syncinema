@@ -641,7 +641,9 @@ app.post("/api/source/resolve", async (req, res) => {
 
   try {
     if (isBilibiliUrl(url)) {
-      const resolved = await resolveBilibiliUrl(url);
+      const resolved = await resolveBilibiliUrl(url, fetch, {
+        inspectVideo: Boolean(req.body?.inspectOnly)
+      });
       if (resolved.live) {
         rememberBilibiliLive(resolved, 10000);
         res.json({
@@ -653,7 +655,11 @@ app.post("/api/source/resolve", async (req, res) => {
           pageUrl: url
         });
       } else {
-        res.json({ ok: true, ...withBilibiliQualityUrls(resolved), pageUrl: url });
+        res.json({
+          ok: true,
+          ...(resolved.inspectOnly ? resolved : withBilibiliQualityUrls(resolved)),
+          pageUrl: url
+        });
       }
       return;
     }

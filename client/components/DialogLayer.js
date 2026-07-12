@@ -33,7 +33,7 @@ export const DialogLayer = {
           </div>
 
           <div class="source-grid">
-            <section class="source-section">
+            <section class="source-section source-import-panel">
               <h3>片源</h3>
               <form id="sourceImportForm" class="source-import-form">
                 <textarea
@@ -58,7 +58,7 @@ export const DialogLayer = {
               </div>
             </section>
 
-            <section class="source-section">
+            <section class="source-section source-search-panel">
               <h3>搜索</h3>
               <form id="sourceSearchForm" class="source-search-form">
                 <input id="sourceSearchInput" type="search" placeholder="输入番剧/影片名称" />
@@ -81,7 +81,7 @@ export const DialogLayer = {
               </div>
             </section>
 
-            <section class="source-section">
+            <section class="source-section source-direct-panel">
               <h3>直链</h3>
               <form id="sourceDirectForm" class="source-direct-form">
                 <input
@@ -91,7 +91,16 @@ export const DialogLayer = {
                 />
                 <button class="secondary-button" type="submit" :disabled="state.source.busy">直接点播</button>
               </form>
-              <h3>选集</h3>
+            </section>
+
+            <section
+              v-show="state.source.chapters.length || (state.source.chapterGroups && state.source.chapterGroups.length)"
+              class="source-section source-episodes-panel"
+            >
+              <div class="source-episodes-head">
+                <h3>选集</h3>
+                <span v-if="state.source.chapters.length">共 {{ state.source.chapters.length }} 集</span>
+              </div>
               <div
                 id="sourceRoads"
                 class="source-roads"

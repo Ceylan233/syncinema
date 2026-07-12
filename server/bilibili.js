@@ -141,7 +141,7 @@ async function resolveBilibiliStream({ bvid, cid, episodeId, quality = 80, refer
   };
 }
 
-async function resolveVideo(target, sourceUrl, fetchImpl = fetch) {
+async function resolveVideo(target, sourceUrl, fetchImpl = fetch, options = {}) {
   const viewParams = target.bvid ? `bvid=${encodeURIComponent(target.bvid)}` : `aid=${encodeURIComponent(target.aid)}`;
   const view = await fetchJson(
     `https://api.bilibili.com/x/web-interface/view?${viewParams}`,
@@ -152,18 +152,9 @@ async function resolveVideo(target, sourceUrl, fetchImpl = fetch) {
   const page = pages[Math.min(pages.length - 1, Math.max(0, target.page - 1))] || pages[0];
   if (!page?.cid) throw new Error("bilibili-video-page-unavailable");
 
-  const playParams = new URLSearchParams({
-    cid: String(page.cid),
-    qn: "80",
-    fnval: "0",
-    fnver: "0",
-    fourk: "1"
-  });
-  if (view.bvid || target.bvid) playParams.set("bvid", view.bvid || target.bvid);
-  else playParams.set("avid", String(view.aid || target.aid));
-  const playData = await fetchJson(`https://api.bilibili.com/x/player/playurl?${playParams.toString()}`, sourceUrl, fetchImpl);
   const part = String(page.part || "").trim();
   const titleAlreadyContainsPart = part && String(view.title || "").includes(part);
+  const title = part && part !== view.title && !titleAlreadyContainsPart ? `${view.title} - ${part}` : view.title;
   const bvid = view.bvid || target.bvid;
   const chapters = pages.map((item, index) => {
     const pageNumber = Number(item?.page || index + 1);
@@ -175,10 +166,37 @@ async function resolveVideo(target, sourceUrl, fetchImpl = fetch) {
       duration: Number(item?.duration || 0)
     };
   });
+
+  if (options.inspectOnly) {
+    return {
+      provider: "bilibili",
+      live: false,
+      title,
+      kind: "video",
+      referer: sourceUrl,
+      bvid,
+      cid: String(page.cid),
+      duration: Number(page.duration || view.duration || 0),
+      selectedPage: Number(page.page || target.page || 1),
+      chapters,
+      inspectOnly: true
+    };
+  }
+
+  const playParams = new URLSearchParams({
+    cid: String(page.cid),
+    qn: "80",
+    fnval: "0",
+    fnver: "0",
+    fourk: "1"
+  });
+  if (view.bvid || target.bvid) playParams.set("bvid", view.bvid || target.bvid);
+  else playParams.set("avid", String(view.aid || target.aid));
+  const playData = await fetchJson(`https://api.bilibili.com/x/player/playurl?${playParams.toString()}`, sourceUrl, fetchImpl);
   return {
     provider: "bilibili",
     live: false,
-    title: part && part !== view.title && !titleAlreadyContainsPart ? `${view.title} - ${part}` : view.title,
+    title,
     mediaUrl: selectDurl(playData),
     mediaUrls: collectDurlCandidates(playData),
     kind: "video",
@@ -307,7 +325,7 @@ async function resolveBilibiliUrl(rawUrl, fetchImpl = fetch, options = {}) {
   if (!target) throw new Error("unsupported-bilibili-url");
   if (target.type === "live") return resolveLive(target, sourceUrl, fetchImpl, options.quality || 10000);
   if (target.type === "episode") return resolveEpisode(target, sourceUrl, fetchImpl);
-  return resolveVideo(target, sourceUrl, fetchImpl);
+  return resolveVideo(target, sourceUrl, fetchImpl, { inspectOnly: Boolean(options.inspectVideo) });
 }
 
 module.exports = {

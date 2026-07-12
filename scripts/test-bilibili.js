@@ -70,6 +70,21 @@ async function run() {
   assert.equal(video.chapters[1].url, "https://www.bilibili.com/video/BV1GJ411x7h7?p=2");
   assert.deepEqual(video.qualities.map((item) => item.quality), [80, 64, 32]);
 
+  let inspectPlayUrlRequests = 0;
+  const inspectFetch = async (url) => {
+    if (String(url).includes("/x/player/playurl")) inspectPlayUrlRequests += 1;
+    return fakeFetch(url);
+  };
+  const inspected = await resolveBilibiliUrl(
+    "https://www.bilibili.com/video/BV1GJ411x7h7",
+    inspectFetch,
+    { inspectVideo: true }
+  );
+  assert.equal(inspected.inspectOnly, true);
+  assert.equal(inspected.mediaUrl, undefined);
+  assert.equal(inspected.chapters.length, 2);
+  assert.equal(inspectPlayUrlRequests, 0);
+
   const stream = await resolveBilibiliStream({ bvid: video.bvid, cid: video.cid, quality: 32 }, fakeFetch);
   assert.equal(stream.mediaUrl, "https://cdn.example/video.mp4");
   assert.equal(stream.quality, 64);

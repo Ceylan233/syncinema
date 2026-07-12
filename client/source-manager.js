@@ -416,7 +416,7 @@ export class SourceManager {
       const response = await fetch("/api/source/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, referer: url })
+        body: JSON.stringify({ url, referer: url, inspectOnly: true })
       });
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.ok) throw new Error(result?.error || "解析播放地址失败");
@@ -434,7 +434,11 @@ export class SourceManager {
         chapters,
         chapterGroups: chapters.length ? [{ id: "bilibili-pages", name: "分P", chapters }] : [],
         activeChapterGroupId: chapters.length ? "bilibili-pages" : "",
-        status: chapters.length > 1 ? `已解析，共 ${chapters.length} 个分P` : "直链已解析"
+        status: chapters.length > 1
+          ? `已解析，共 ${chapters.length} 个分P，请选择播放`
+          : chapters.length === 1
+            ? "已解析，请选择 P1 播放"
+            : "直链已解析"
       });
       return resolved;
     } catch (error) {
