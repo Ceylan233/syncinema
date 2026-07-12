@@ -1,11 +1,12 @@
 {
-  "name": "syncinema-beta",
+  "name": "syncinema",
   "version": "1.6.0",
   "private": true,
-  "description": "Syncinema, a private watch-together cinema with voice chat, playback sync, room chat, and local video sharing.",
+  "description": "同映：可自行部署的多人同步观影、聊天、弹幕和语音应用。",
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
+    "deploy": "npm ci && npm run build:client && npm start",
     "dev": "node server/server.js",
     "build:client": "esbuild client/app.js --bundle --format=esm --platform=browser --target=es2020 --charset=utf8 --define:__VUE_OPTIONS_API__=true --define:__VUE_PROD_DEVTOOLS__=false --define:__VUE_PROD_HYDRATION_MISMATCH_DETAILS__=false --outfile=client/dist/app.bundle.js",
     "build:sensitive": "node scripts/build-sensitive-dictionary.js",

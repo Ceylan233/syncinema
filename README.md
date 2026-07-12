@@ -22,13 +22,21 @@
 
 ## 本地运行
 
+下载或克隆仓库后，只需执行一条命令：
+
+```bash
+npm run deploy
+```
+
+它会依次完成依赖安装、前端构建和服务启动。浏览器访问 `http://localhost:3100/`。
+
+需要分步排查时，可以使用：
+
 ```bash
 npm ci
 npm run build:client
 npm start
 ```
-
-浏览器访问 `http://localhost:3100/`。
 
 公网开放前建议设置独立的内容管理密码。未设置该变量时，敏感词管理入口将停用：
 
