@@ -52,7 +52,22 @@ git pull
 docker compose up -d --build
 ```
 
-默认配置已经可以运行，不需要填写 CORS、数据文件路径、ICE 或 TURN。只有需要自定义端口、语音中继或内容管理密码时，才需要额外配置环境变量。
+## 环境变量
+
+所有环境变量均为可选项。直接使用 Node.js 部署时，在启动命令前设置；使用 Docker 部署时，在 `compose.yaml` 的 `environment` 中设置。
+
+| 环境变量 | 说明 | 默认值 |
+| --- | --- | --- |
+| `PORT` | 服务监听端口 | `3100` |
+| `CORS_ORIGIN` | 允许访问服务的来源 | `*` |
+| `SENSITIVE_ADMIN_PASSWORD` | 敏感词管理密码；未设置时关闭管理入口 | 未设置 |
+| `CHAT_HISTORY_FILE` | 房间聊天记录文件路径 | `server/chat-history.json` |
+| `PLAYBACK_ACTIVITY_FILE` | 播放操作记录文件路径 | `server/playback-activity.json` |
+| `SENSITIVE_WORDS_FILE` | 敏感词数据文件路径 | `server/sensitive-words.json` |
+| `ICE_SERVERS_JSON` | WebRTC ICE 服务器配置，使用 JSON 数组格式 | 内置 STUN |
+| `TURN_URLS` | TURN 服务地址，多个地址使用逗号分隔 | 未设置 |
+| `TURN_USERNAME` | TURN 用户名 | 未设置 |
+| `TURN_CREDENTIAL` | TURN 密码 | 未设置 |
 
 公网正式使用时，请为域名配置 HTTPS；具体方法见 [HTTPS 部署说明](HTTPS.md)。
 
