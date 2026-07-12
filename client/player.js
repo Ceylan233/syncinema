@@ -1329,7 +1329,7 @@ export class CinemaPlayer extends EventTarget {
   }
 
   shouldSyncUserEvent(eventName) {
-    if (this.hasLocalSource()) return eventName === "ended";
+    if (eventName === "ended") return this.hasLocalSource();
     if (eventName === "ratechange") return document.activeElement === this.ui.rateSelect;
     if (eventName === "fitchange") return document.activeElement === this.ui.fitSelect;
     if (!["seek-drag", "seek-release", "skip"].includes(eventName)) return false;

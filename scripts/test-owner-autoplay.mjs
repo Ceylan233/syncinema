@@ -99,4 +99,21 @@ CinemaPlayer.prototype.syncIndependentPlayerEvent.call(nativePlayer, "seeked");
 assert.equal(nativeActions[0].reason, "seek-release", "native player seeking must become an authoritative room seek");
 assert.equal(nativeActions[0].options.userIntent, true);
 
+const ownerSeek = {
+  hasLocalSource: () => true,
+  userSyncUntil: Date.now() + 1000,
+  ui: {}
+};
+assert.equal(
+  CinemaPlayer.prototype.shouldSyncUserEvent.call(ownerSeek, "skip"),
+  true,
+  "a local source owner's keyboard seek must update the authoritative room timeline"
+);
+ownerSeek.userSyncUntil = Date.now() - 1;
+assert.equal(
+  CinemaPlayer.prototype.shouldSyncUserEvent.call(ownerSeek, "skip"),
+  false,
+  "a stale local seek event must not be emitted after its user-intent window"
+);
+
 console.log("Source owner autoplay tests passed");
