@@ -5167,16 +5167,14 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
   .video-frame:fullscreen .controls .volume-control,
   .video-frame:-webkit-full-screen .controls .volume-control,
   .video-frame.pseudo-fullscreen .controls .volume-control {
-    display: grid !important;
-    grid-template-columns: 28px minmax(0, 1fr) !important;
-    align-items: center !important;
-    gap: 7px !important;
+    position: relative !important;
+    display: block !important;
     width: 100% !important;
     min-width: 0 !important;
     height: 32px !important;
     min-height: 32px !important;
     max-height: 32px !important;
-    padding: 0 9px !important;
+    padding: 0 !important;
     border: 1px solid rgba(255, 255, 255, 0.13) !important;
     border-radius: 7px !important;
     background: rgba(18, 21, 28, 0.86) !important;
@@ -5187,22 +5185,33 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
   .video-frame:fullscreen .controls .volume-control span,
   .video-frame:-webkit-full-screen .controls .volume-control span,
   .video-frame.pseudo-fullscreen .controls .volume-control span {
+    position: absolute !important;
+    z-index: 2 !important;
+    top: 50% !important;
+    left: 9px !important;
     width: 28px !important;
     color: rgba(255, 255, 255, 0.82) !important;
     font-size: 12px !important;
     line-height: 1 !important;
     text-align: left !important;
     white-space: nowrap !important;
+    transform: translateY(-50%) !important;
   }
 
   .video-frame:fullscreen .controls .volume-control input,
   .video-frame:-webkit-full-screen .controls .volume-control input,
   .video-frame.pseudo-fullscreen .controls .volume-control input {
-    width: 100% !important;
+    position: absolute !important;
+    z-index: 1 !important;
+    top: 50% !important;
+    right: 9px !important;
+    left: 44px !important;
+    width: auto !important;
     min-width: 0 !important;
     height: 22px !important;
     margin: 0 !important;
     cursor: pointer !important;
+    transform: translateY(-50%) !important;
   }
 
   .video-frame:fullscreen .controls .progress-wrap,
@@ -5235,10 +5244,17 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
     margin: 0 !important;
   }
 
+  .video-frame:fullscreen .controls .danmaku-settings-toggle,
+  .video-frame:-webkit-full-screen .controls .danmaku-settings-toggle,
+  .video-frame.pseudo-fullscreen .controls .danmaku-settings-toggle,
   body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls .danmaku-settings-toggle {
     font-size: 0 !important;
+    line-height: 1 !important;
   }
 
+  .video-frame:fullscreen .controls .danmaku-settings-toggle::before,
+  .video-frame:-webkit-full-screen .controls .danmaku-settings-toggle::before,
+  .video-frame.pseudo-fullscreen .controls .danmaku-settings-toggle::before,
   body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls .danmaku-settings-toggle::before {
     content: "设置" !important;
     font-size: 12px !important;
