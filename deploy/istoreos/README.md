@@ -16,7 +16,9 @@ sh /tmp/install-syncinema.sh
 
 ## 公网 IP 邮件提醒
 
-编辑 `/mnt/data/syncinema/ip-monitor.env`。`MAIL_PASS` 必须填写邮箱的 SMTP 授权码，不是邮箱登录密码。
+监控脚本位于 `public-ip-monitor.py`，只使用 Python 标准库。它会依次查询 `api.ipify.org`、`ifconfig.me` 和 `icanhazip.com`，某个查询失败时自动尝试下一个地址。只有检测到有效的公网 IPv4 后才会更新状态文件。
+
+编辑 `/mnt/data/syncinema/ip-monitor.env`。`MAIL_PASS` 必须填写邮箱的 SMTP 授权码，不是邮箱登录密码。163 邮箱需要先在邮箱设置中启用 SMTP 服务并生成授权码。
 
 ```sh
 vi /mnt/data/syncinema/ip-monitor.env
@@ -25,6 +27,16 @@ docker logs -f syncinema-ip-monitor
 ```
 
 监控程序每五分钟检查一次公网 IP，并将上一次地址保存在 `/mnt/data/syncinema/runtime/ip-monitor/public-ip.txt`。
+
+默认首次检测只记录公网 IP，不发邮件。需要测试邮件时，将配置中的 `NOTIFY_INITIAL` 改为 `true`，然后执行：
+
+```sh
+rm -f /mnt/data/syncinema/runtime/ip-monitor/public-ip.txt
+docker restart syncinema-ip-monitor
+docker logs --tail 20 syncinema-ip-monitor
+```
+
+邮件发送成功后，可以将 `NOTIFY_INITIAL` 改回 `false`；之后只有公网 IP 发生变化时才会通知。
 
 ## 常用管理命令
 

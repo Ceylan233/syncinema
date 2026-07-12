@@ -190,6 +190,46 @@ sh /tmp/install-syncinema.sh
 
 详细说明见 [iStoreOS 一键部署](deploy/istoreos/README.md)。
 
+## 公网 IP 变化邮件提醒
+
+仓库包含一个独立的公网 IPv4 监控脚本：[public-ip-monitor.py](deploy/istoreos/public-ip-monitor.py)。它会依次查询多个公网 IP 服务，将结果与上次记录比较，并在地址变化时通过 SSL SMTP 发送邮件。脚本只使用 Python 标准库，不需要安装额外依赖。
+
+复制配置模板并填写邮箱信息：
+
+```sh
+cp deploy/istoreos/ip-monitor.env.example /mnt/data/syncinema/ip-monitor.env
+vi /mnt/data/syncinema/ip-monitor.env
+```
+
+| 变量 | 必填 | 说明 |
+| --- | --- | --- |
+| `MAIL_USER` | 是 | 发件邮箱地址 |
+| `MAIL_PASS` | 是 | 邮箱 SMTP 授权码，不是登录密码 |
+| `MAIL_TO` | 是 | 收件邮箱地址，可与发件邮箱相同 |
+| `SMTP_HOST` | 是 | SMTP 服务器，例如 `smtp.163.com` |
+| `SMTP_PORT` | 是 | SSL SMTP 端口，默认 `465` |
+| `MAIL_SUBJECT_PREFIX` | 否 | 邮件主题前缀 |
+| `NOTIFY_INITIAL` | 否 | 设为 `true` 时首次检测也发送邮件 |
+| `IP_CHECK_URLS` | 否 | 公网 IP 查询地址，多个地址使用逗号分隔 |
+| `IP_STATE_FILE` | 否 | 上一次公网 IP 的保存路径 |
+
+iStoreOS/OpenWrt 使用 Docker 持续监控，每五分钟检查一次：
+
+```sh
+sh /mnt/data/syncinema/source/deploy/istoreos/start-ip-monitor.sh
+docker logs -f syncinema-ip-monitor
+```
+
+需要立即验证邮件配置时，将 `NOTIFY_INITIAL=true`，删除旧状态文件后重启监控容器：
+
+```sh
+rm -f /mnt/data/syncinema/runtime/ip-monitor/public-ip.txt
+docker restart syncinema-ip-monitor
+docker logs --tail 20 syncinema-ip-monitor
+```
+
+完整说明见 [公网 IP 邮件提醒与 iStoreOS 部署](deploy/istoreos/README.md)。
+
 ## 许可证
 
 本项目采用 GNU Affero General Public License v3.0 许可证。请只共享你有权访问和传播的媒体内容，并自行遵守当地法律法规及第三方服务条款。
