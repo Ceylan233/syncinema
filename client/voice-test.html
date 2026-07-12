@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Syncinema Voice Test</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #08090d;
+        color: #f7f8fb;
+        font: 14px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      button {
+        min-height: 38px;
+        padding: 0 14px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 10px;
+        background: rgba(107, 214, 255, 0.16);
+        color: #f7f8fb;
+      }
+
+      pre {
+        min-height: 260px;
+        padding: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.05);
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Syncinema Voice Test</h1>
+    <div class="actions">
+      <button id="local">Play local beep</button>
+      <button id="run">Run relay test and play</button>
+    </div>
+    <pre id="log">Waiting...</pre>
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="/voice-test.js?v=20260710-voice-6"></script>
+  </body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>同映测速</title>
+    <link rel="stylesheet" href="/speed-test.css?v=20260710-1" />
+  </head>
+  <body>
+    <main class="speed-shell">
+      <section class="hero">
+        <p class="eyebrow">Syncinema 同映</p>
+        <h1>手机网络测速</h1>
+        <p class="subtitle">测试你的手机到当前服务器的延迟、抖动、下载和上传速度。</p>
+      </section>
+
+      <section class="panel">
+        <button id="startButton" type="button">开始测速</button>
+        <div id="status" class="status">等待开始</div>
+        <div class="bar"><span id="barFill"></span></div>
+      </section>
+
+      <section class="grid">
+        <article class="metric">
+          <span>延迟</span>
+          <strong id="latency">-- ms</strong>
+        </article>
+        <article class="metric">
+          <span>抖动</span>
+          <strong id="jitter">-- ms</strong>
+        </article>
+        <article class="metric">
+          <span>下载</span>
+          <strong id="download">-- Mbps</strong>
+        </article>
+        <article class="metric">
+          <span>上传</span>
+          <strong id="upload">-- Mbps</strong>
+        </article>
+      </section>
+
+      <section class="panel verdict">
+        <div class="verdict-title">结果判断</div>
+        <p id="verdictText">开始测速后会自动判断适不适合语音、同步和视频缓冲。</p>
+      </section>
+
+      <section class="details">
+        <div><span>服务器</span><strong id="hostText"></strong></div>
+        <div><span>测试方式</span><strong>下载 8 秒 / 自适应上传</strong></div>
+      </section>
+    </main>
+
+    <script src="/speed-test.js?v=20260712-3"></script>
+  </body>
+</html>

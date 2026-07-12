@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Syncinema 同映</title>
+    <link rel="stylesheet" href="/style.css?v=20260712-v16" />
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script>
+      (() => {
+        const cleanup = [];
+        if ("serviceWorker" in navigator) {
+          cleanup.push(
+            navigator.serviceWorker.getRegistrations().then((registrations) =>
+              Promise.all(registrations.map((registration) => registration.unregister()))
+            )
+          );
+        }
+        if ("caches" in window) {
+          cleanup.push(caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))));
+        }
+        Promise.allSettled(cleanup).finally(() => {
+          if (location.pathname === "/web" || location.pathname.startsWith("/web/")) {
+            history.replaceState(null, "", "/");
+          } else if (location.search.includes("legacy-sw-cleared")) {
+            history.replaceState(null, "", "/");
+          }
+        });
+      })();
+    </script>
+    <script type="module" src="/dist/app.bundle.js?v=20260712-v16"></script>
+  </body>
+</html>

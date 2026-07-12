@@ -1,0 +1,33 @@
+{
+  "name": "syncinema-beta",
+  "version": "1.6.0",
+  "private": true,
+  "description": "Syncinema, a private watch-together cinema with voice chat, playback sync, room chat, and local video sharing.",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js",
+    "build:client": "esbuild client/app.js --bundle --format=esm --platform=browser --target=es2020 --charset=utf8 --define:__VUE_OPTIONS_API__=true --define:__VUE_PROD_DEVTOOLS__=false --define:__VUE_PROD_HYDRATION_MISMATCH_DETAILS__=false --outfile=client/dist/app.bundle.js",
+    "build:sensitive": "node scripts/build-sensitive-dictionary.js",
+    "import:sensitive": "node scripts/import-sensitive-dictionary.js",
+    "test": "node scripts/test-clock-sync.mjs && node scripts/test-owner-autoplay.mjs && node scripts/test-playback-sync.js && node scripts/test-sync-controller.mjs && node scripts/test-timeline-sync.js && node scripts/test-bilibili.js && node scripts/test-sensitive-filter.js && node scripts/test-live-playback.mjs && node scripts/test-source-manager.mjs && node scripts/test-segment-cache.js",
+    "cert:https": "powershell -ExecutionPolicy Bypass -File scripts/create-https-cert.ps1",
+    "start:https": "powershell -ExecutionPolicy Bypass -File scripts/start-https.ps1"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "@shiguredo/rnnoise-wasm": "^2025.1.5",
+    "compression": "^1.8.1",
+    "element-plus": "^2.14.2",
+    "express": "^4.19.2",
+    "flv.js": "^1.6.2",
+    "hls.js": "^1.6.16",
+    "mp4box": "^2.4.1",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5",
+    "vue": "^3.5.39"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  }
+}

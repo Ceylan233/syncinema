@@ -1,0 +1,14 @@
+node_modules/
+*.log
+*.pid
+.env
+*.env
+!*.env.example
+server/chat-history.json
+server/playback-activity.json
+server/sensitive-words.json
+runtime/
+certs/
+releases/
+.DS_Store
+Thumbs.db
