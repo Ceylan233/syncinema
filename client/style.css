@@ -5150,6 +5150,8 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
     width: 100% !important;
     min-width: 0 !important;
     height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
   }
 
   .video-frame:fullscreen .controls .danmaku-control-group > button,
@@ -5166,24 +5168,41 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
   .video-frame:-webkit-full-screen .controls .volume-control,
   .video-frame.pseudo-fullscreen .controls .volume-control {
     display: grid !important;
-    grid-template-columns: auto minmax(0, 1fr) !important;
+    grid-template-columns: 28px minmax(0, 1fr) !important;
     align-items: center !important;
-    gap: 6px !important;
+    gap: 7px !important;
     width: 100% !important;
     min-width: 0 !important;
     height: 32px !important;
-    padding: 0 7px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    padding: 0 9px !important;
     border: 1px solid rgba(255, 255, 255, 0.13) !important;
     border-radius: 7px !important;
     background: rgba(18, 21, 28, 0.86) !important;
     box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 
   .video-frame:fullscreen .controls .volume-control span,
   .video-frame:-webkit-full-screen .controls .volume-control span,
   .video-frame.pseudo-fullscreen .controls .volume-control span {
-    font-size: 10px !important;
+    width: 28px !important;
+    color: rgba(255, 255, 255, 0.82) !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    text-align: left !important;
     white-space: nowrap !important;
+  }
+
+  .video-frame:fullscreen .controls .volume-control input,
+  .video-frame:-webkit-full-screen .controls .volume-control input,
+  .video-frame.pseudo-fullscreen .controls .volume-control input {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 22px !important;
+    margin: 0 !important;
+    cursor: pointer !important;
   }
 
   .video-frame:fullscreen .controls .progress-wrap,
