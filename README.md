@@ -12,6 +12,20 @@
 - WebRTC 语音和敏感词管理
 - 桌面端与移动端响应式控制栏
 
+## 项目截图
+
+### 桌面端播放器
+
+![同映桌面端播放器](docs/screenshots/desktop-player.png)
+
+### 手机横屏
+
+![同映手机横屏播放器](docs/screenshots/mobile-fullscreen.png)
+
+### 在线片源
+
+![同映在线片源点播](docs/screenshots/source-dialog.png)
+
 ## 本地运行
 
 需要提前安装 Node.js 20 或更高版本，推荐 Node.js 22。
