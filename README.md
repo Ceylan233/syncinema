@@ -56,18 +56,46 @@ docker compose up -d --build
 
 所有环境变量均为可选项，不填写即可按默认配置运行。
 
-| 环境变量 | 说明 | 默认值 | 示例 |
-| --- | --- | --- | --- |
-| `PORT` | 服务监听端口 | `3100` | `8080` |
-| `CORS_ORIGIN` | 允许访问服务的网站来源，需要包含协议和域名 | `*` | `https://syncinema.example.com` |
-| `SENSITIVE_ADMIN_PASSWORD` | 敏感词管理密码；留空时关闭管理入口 | 留空 | `请设置一个长密码` |
-| `CHAT_HISTORY_FILE` | 房间聊天记录文件路径 | `server/chat-history.json` | `/opt/syncinema/chat-history.json` |
-| `PLAYBACK_ACTIVITY_FILE` | 播放操作记录文件路径 | `server/playback-activity.json` | `/opt/syncinema/playback-activity.json` |
-| `SENSITIVE_WORDS_FILE` | 敏感词数据文件路径 | `server/sensitive-words.json` | `/opt/syncinema/sensitive-words.json` |
-| `ICE_SERVERS_JSON` | 完整的 WebRTC ICE 服务器配置，填写单行 JSON 数组 | 内置 STUN | 见下方示例 |
-| `TURN_URLS` | TURN 地址，多个地址使用英文逗号分隔 | 留空 | `turn:turn.example.com:3478?transport=udp` |
-| `TURN_USERNAME` | TURN 用户名 | 留空 | `syncinema` |
-| `TURN_CREDENTIAL` | TURN 密码 | 留空 | `TURN 服务密码` |
+### 基础服务
+
+| 参数 | 是否必须 | 说明 |
+| --- | --- | --- |
+| `PORT` | 可选 | 服务监听端口，默认 `3100` |
+| `CORS_ORIGIN` | 可选 | 允许访问服务的网站来源，默认 `*` |
+| `SENSITIVE_ADMIN_PASSWORD` | 可选 | 敏感词管理密码；留空时关闭管理入口 |
+
+### 数据存储
+
+| 参数 | 是否必须 | 说明 |
+| --- | --- | --- |
+| `CHAT_HISTORY_FILE` | 可选 | 房间聊天记录路径，默认 `server/chat-history.json` |
+| `PLAYBACK_ACTIVITY_FILE` | 可选 | 播放操作记录路径，默认 `server/playback-activity.json` |
+| `SENSITIVE_WORDS_FILE` | 可选 | 敏感词数据路径，默认 `server/sensitive-words.json` |
+
+### WebRTC 与 TURN
+
+| 参数 | 是否必须 | 说明 |
+| --- | --- | --- |
+| `ICE_SERVERS_JSON` | 可选 | 完整 ICE 配置，使用单行 JSON 数组 |
+| `TURN_URLS` | 可选 | TURN 地址，多个地址使用英文逗号分隔 |
+| `TURN_USERNAME` | 可选 | TURN 用户名 |
+| `TURN_CREDENTIAL` | 可选 | TURN 密码 |
+
+---
+
+**`CORS_ORIGIN` 写法：** 需要包含协议和域名，例如 `https://syncinema.example.com`。保持 `*` 表示允许所有来源。
+
+**`SENSITIVE_ADMIN_PASSWORD` 写法：** 直接填写自行设置的长密码。公开部署时不要使用示例密码。
+
+**`TURN_URLS` 写法：** 单个地址直接填写；多个地址使用英文逗号 `,` 分隔，例如：
+
+```text
+turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp
+```
+
+**`ICE_SERVERS_JSON` 写法：** 它与 `TURN_URLS`、`TURN_USERNAME`、`TURN_CREDENTIAL` 两种方式任选一种。填写 `ICE_SERVERS_JSON` 后，以 JSON 中的配置为准。
+
+**数据文件路径写法：** 建议填写绝对路径。Docker 已自动使用数据卷保存这三类文件，通常不需要修改。
 
 ### Docker 填写方法
 
