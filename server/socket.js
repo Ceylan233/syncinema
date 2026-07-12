@@ -637,7 +637,7 @@ module.exports = function attachSocketHandlers(io, options = {}) {
           // is available. Only block controls before the guest knows the video.
           if (
             !activeVideoMeta?.live &&
-            (Number(state.readyState || 0) < 1 || Number(state.duration || playback.duration || 0) <= 0)
+            Number(state.duration || playback.duration || activeVideoMeta?.duration || 0) <= 0
           ) {
             return playbackSnapshot();
           }

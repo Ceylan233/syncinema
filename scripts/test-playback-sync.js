@@ -161,6 +161,29 @@ assert.equal(state.fitMode, "ratio-4-3", "fit mode must synchronize");
 
 state = room2.applyPlayback(
   {
+    reason: "skip",
+    userIntent: true,
+    hasVideo: true,
+    videoId: meta.id,
+    paused: false,
+    currentTime: 260,
+    duration: 600,
+    playbackRate: 1,
+    fitMode: "ratio-4-3",
+    readyState: 0,
+    waiting: true,
+    actionId: "guest-keyboard-skip"
+  },
+  { id: "guest-socket", clientId: "guest-client", name: "Guest" }
+);
+assert.equal(
+  state.currentTime,
+  260,
+  "a guest keyboard seek must remain authoritative when HLS temporarily drops readyState"
+);
+
+state = room2.applyPlayback(
+  {
     reason: "remote-pause-click",
     userIntent: true,
     hasVideo: true,
