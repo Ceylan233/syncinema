@@ -232,6 +232,9 @@ function wireSocket() {
   room.on("user-joined", (user) => {
     if (!user?.id || user.id === selfId) return;
     latestUsers = latestUsers.some((item) => item.id === user.id) ? latestUsers : latestUsers.concat(user);
+    if (!isLockedDemoRoom() && !user.reconnected) {
+      ui.addSystemMessage(`${user.name || "有人"} 进入房间`);
+    }
     updateVoicePeerTargets();
     mesh.ensureReceiveOnlyPeers(latestUsers.map((item) => item.id).concat(user.id));
     mesh.setLocalStream(voice.stream || null);
@@ -244,6 +247,7 @@ function wireSocket() {
     updateVoicePeerTargets();
     remoteAudioStates.delete(id);
     updateVoiceConnectionStatus();
+    if (!isLockedDemoRoom()) ui.addSystemMessage(`${name || "有人"} 退出房间`);
   });
   room.on("signal", (payload) => mesh.handleSignal(payload));
   room.on("voice-packet", (meta, buffer) => {

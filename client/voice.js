@@ -423,6 +423,7 @@
     this.remoteAudios.delete(peerId);
     const relay = this.relayPlayers.get(peerId);
     if (relay) {
+      this.stopRelayPlayback(peerId);
       try {
         relay.gain?.disconnect?.();
       } catch {
@@ -437,12 +438,8 @@
     return Boolean(meter && Date.now() - meter.lastAudibleAt < 550 && (meter.lastRms || 0) > 0.004);
   }
 
-  isMobilePlaybackDevice() {
-    const ua = navigator.userAgent || "";
-    return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || matchMedia?.("(pointer: coarse)")?.matches;
-  }
-
   shouldSuppressRelayPlayback(peerId) {
+    if (this.realtimePeers.has(String(peerId || ""))) return true;
     if (!this.audioUnlocked || this.remotePlaybackBlocked) return false;
     if (!this.hasRecentP2PAudio(peerId)) return false;
 
@@ -467,6 +464,7 @@
     const id = String(peerId);
     if (connected) {
       this.realtimePeers.set(id, Date.now());
+      this.stopRelayPlayback(id);
     } else {
       this.realtimePeers.delete(id);
     }
@@ -477,7 +475,7 @@
   }
 
   relayTargetIds() {
-    return Array.from(this.expectedRemotePeers);
+    return Array.from(this.expectedRemotePeers).filter((peerId) => !this.realtimePeers.has(peerId));
   }
 
   createProcessedStream(inputStream) {
@@ -699,7 +697,7 @@
 
   loadInputVolume() {
     const saved = Number(localStorage.getItem("pc:mic-volume"));
-    if (!Number.isFinite(saved) || saved < 0.25) return this.isMobilePlaybackDevice() ? 1.35 : 1.15;
+    if (!Number.isFinite(saved) || saved < 0.25) return 1;
     return Math.min(2, Math.max(0.25, saved));
   }
 
@@ -805,17 +803,19 @@
 
       this.relayProcessor.onaudioprocess = (event) => {
         if (!this.enabled || !this.socket.raw?.connected) return;
-        if (this.expectedRemotePeers.size === 0) return;
+        const targets = this.relayTargetIds();
+        if (targets.length === 0) return;
         const input = event.inputBuffer.getChannelData(0);
         const downsampled = this.downsample(input, this.audioContext.sampleRate, this.relaySampleRate);
         if (!downsampled?.length) return;
-        const pcm = this.floatToInt16(this.applyRelayAutoGain(downsampled));
+        const pcm = this.floatToInt16(downsampled);
         this.socket.sendVoicePacket(
           {
             sampleRate: this.relaySampleRate,
             channels: 1,
             seq: this.voicePacketSeq++,
-            sentAt: Date.now()
+            sentAt: Date.now(),
+            targets
           },
           pcm.buffer
         );
@@ -886,6 +886,7 @@
       gain.connect(audioContext.destination);
       player = {
         gain,
+        sources: new Set(),
         nextTime: audioContext.currentTime + 0.18,
         lastSeq: -1,
         lastSeqAt: 0,
@@ -928,10 +929,12 @@
 
     const source = audioContext.createBufferSource();
     source.buffer = audioBuffer;
+    player.sources.add(source);
     const packetGain = audioContext.createGain();
     packetGain.connect(player.gain);
     source.connect(packetGain);
     source.onended = () => {
+      player.sources.delete(source);
       try {
         source.disconnect();
         packetGain.disconnect();
@@ -1013,11 +1016,28 @@
 
   applyPacketEnvelope(gainNode, startAt, duration, continuousPacket = false) {
     const gain = Math.max(0, Math.min(1, this.outputVolume));
-    const fade = continuousPacket ? 0.0008 : Math.min(0.004, Math.max(0.0015, duration / 24));
     gainNode.gain.cancelScheduledValues(startAt);
+    if (continuousPacket) {
+      gainNode.gain.setValueAtTime(gain, startAt);
+      return;
+    }
+    const fade = Math.min(0.004, Math.max(0.0015, duration / 24));
     gainNode.gain.setValueAtTime(0, startAt);
     gainNode.gain.linearRampToValueAtTime(gain, startAt + fade);
-    gainNode.gain.setValueAtTime(gain, startAt + Math.max(fade, duration - 0.001));
+  }
+
+  stopRelayPlayback(peerId) {
+    const player = this.relayPlayers.get(String(peerId || ""));
+    if (!player) return;
+    for (const source of player.sources || []) {
+      try {
+        source.stop();
+      } catch {
+        // The packet may have already ended.
+      }
+    }
+    player.sources?.clear?.();
+    player.nextTime = (this.audioContext?.currentTime || 0) + 0.12;
   }
 
   noticeVoiceDrop(player, peerId) {
@@ -1064,35 +1084,4 @@
     return output;
   }
 
-  applyRelayAutoGain(input) {
-    let sum = 0;
-    let peak = 0;
-    for (let index = 0; index < input.length; index += 1) {
-      const sample = Number(input[index]) || 0;
-      sum += sample * sample;
-      peak = Math.max(peak, Math.abs(sample));
-    }
-
-    const rms = Math.sqrt(sum / Math.max(1, input.length));
-    if (rms < 0.0012) return input;
-
-    const baseTarget = this.noiseReductionEnabled ? 0.024 : 0.052;
-    const volumeScale = Math.min(this.noiseReductionEnabled ? 1.05 : 1.8, Math.max(0.25, this.inputVolume));
-    const target = baseTarget * volumeScale;
-    const rmsGain = Math.min(this.noiseReductionEnabled ? 1.18 : 3.4, Math.max(0.2, target / rms));
-    const peakGain = peak > 0 ? Math.min(this.noiseReductionEnabled ? 1.05 : 1.8, 0.72 / peak) : 1.05;
-    const gain = Math.min(rmsGain, peakGain);
-    if (Math.abs(gain - 1) < 0.05 && peak <= 0.68) return input;
-
-    const output = new Float32Array(input.length);
-    for (let index = 0; index < input.length; index += 1) {
-      output[index] = Math.max(-0.9, Math.min(0.9, input[index] * gain));
-    }
-    return output;
-  }
-
-  softLimit(sample, ceiling = 0.82) {
-    const normalized = Math.max(-1.5, Math.min(1.5, Number(sample) || 0));
-    return Math.max(-ceiling, Math.min(ceiling, Math.tanh(normalized / Math.max(0.25, ceiling)) * ceiling));
-  }
 }

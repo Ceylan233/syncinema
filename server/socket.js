@@ -1218,7 +1218,10 @@ module.exports = function attachSocketHandlers(io, options = {}) {
         playbackActivities: playbackActivities.slice()
       });
       if (rejectedName) socket.emit("sensitive-rejected", { field: "name" });
-      socket.to(key).emit("user-joined", publicUser(socket.id, user, activeVideoMeta));
+      socket.to(key).emit("user-joined", {
+        ...publicUser(socket.id, user, activeVideoMeta),
+        reconnected: Boolean(oldUser && !oldUser.presenceOnly)
+      });
       broadcastUsers();
     };
 
