@@ -38,6 +38,8 @@ export class CinemaPlayer extends EventTarget {
     this.feedbackTimer = null;
     this.seekBlockedTimer = null;
     this.seekSyncTimer = null;
+    this.pendingSeekTarget = null;
+    this.localSeekCommitUntil = 0;
     this.keyboardSeekTimer = null;
     this.keyboardSeekTarget = null;
     this.keyboardSeekDelta = 0;
@@ -177,6 +179,7 @@ export class CinemaPlayer extends EventTarget {
       }
       this.markUserSync(1800);
       this.draggingSeek = true;
+      this.pendingSeekTarget = Number(this.video.currentTime || 0);
       this.showSeekPreview(event);
       this.showControls();
     });
@@ -193,6 +196,7 @@ export class CinemaPlayer extends EventTarget {
 
     window.addEventListener("pointerup", () => {
       const wasDragging = this.draggingSeek;
+      const targetTime = this.pendingSeekTarget;
       this.draggingSeek = false;
       this.hideSeekPreview();
       if (this.blockedSeekDrag) {
@@ -200,7 +204,7 @@ export class CinemaPlayer extends EventTarget {
         this.updateControls();
         return;
       }
-      if (wasDragging) this.scheduleSeekSync("seek-release", 60);
+      if (wasDragging) this.scheduleSeekSync("seek-release", 60, targetTime);
     });
 
     this.ui.rateSelect.addEventListener("change", () => {
@@ -1235,18 +1239,42 @@ export class CinemaPlayer extends EventTarget {
   seekFromBar(reason, syncWindow) {
     if (this.isLiveSource()) return;
     this.markUserSync(syncWindow);
-    this.video.currentTime = (Number(this.ui.seekBar.value) / 1000) * this.video.duration;
+    const targetTime = (Number(this.ui.seekBar.value) / 1000) * this.video.duration;
+    this.pendingSeekTarget = targetTime;
+    this.video.currentTime = targetTime;
     this.updateSeekPreviewFromEvent();
-    if (reason === "seek-release") this.scheduleSeekSync(reason, 60);
+    if (reason === "seek-release") this.scheduleSeekSync(reason, 60, targetTime);
   }
 
-  scheduleSeekSync(reason, delay = 120) {
+  scheduleSeekSync(reason, delay = 120, targetTime = null) {
     window.clearTimeout(this.seekSyncTimer);
+    if (Number.isFinite(targetTime)) this.localSeekCommitUntil = Date.now() + 1500;
     this.seekSyncTimer = window.setTimeout(() => {
       this.seekSyncTimer = null;
       this.markUserSync(800);
-      this.emitUserSync(reason);
+      this.emitUserSync(
+        reason,
+        Number.isFinite(targetTime) ? { currentTime: targetTime } : null
+      );
+      if (Number.isFinite(targetTime)) this.releasePendingSeekTarget(targetTime);
     }, delay);
+  }
+
+  releasePendingSeekTarget(targetTime, deadline = Date.now() + 60000) {
+    window.setTimeout(() => {
+      if (this.pendingSeekTarget !== targetTime) return;
+      const currentTime = Number(this.video.currentTime || 0);
+      const reachedTarget = Math.abs(currentTime - targetTime) <= 1;
+      const targetIsPlayable = reachedTarget &&
+        !this.video.seeking &&
+        this.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+      if (!targetIsPlayable && Date.now() < deadline) {
+        this.releasePendingSeekTarget(targetTime, deadline);
+        return;
+      }
+      this.pendingSeekTarget = null;
+      this.updateControls();
+    }, 250);
   }
 
   remoteSeekUnavailable() {
@@ -1342,9 +1370,9 @@ export class CinemaPlayer extends EventTarget {
     );
   }
 
-  emitUserSync(reason) {
+  emitUserSync(reason, overrides = null) {
     if (this.applyingRemote || !this.shouldSyncUserEvent(reason)) return;
-    this.emitSync(reason, { userIntent: true });
+    this.emitSync(reason, { userIntent: true, ...(overrides ? { overrides } : {}) });
   }
 
   markUserSync(duration = 1200) {
@@ -1444,6 +1472,11 @@ export class CinemaPlayer extends EventTarget {
 
   async applyRemote(state) {
     if (!state?.hasVideo) return;
+    if (this.draggingSeek) return;
+    if (Date.now() < this.localSeekCommitUntil && Number.isFinite(this.pendingSeekTarget)) {
+      const incomingTarget = this.remoteTargetTime(state);
+      if (!Number.isFinite(incomingTarget) || Math.abs(incomingTarget - this.pendingSeekTarget) > 0.75) return;
+    }
     const applyGeneration = ++this.remoteApplyGeneration;
     this.applyingRemote = true;
     const targetTime = this.remoteTargetTime(state);
@@ -1901,9 +1934,12 @@ export class CinemaPlayer extends EventTarget {
       this.updateBufferedBar(1, 1);
       return;
     }
-    this.ui.currentTime.textContent = formatTime(current);
+    const displayedCurrent = Number.isFinite(this.pendingSeekTarget)
+      ? this.pendingSeekTarget
+      : current;
+    this.ui.currentTime.textContent = formatTime(displayedCurrent);
     this.ui.duration.textContent = formatTime(duration);
-    this.ui.seekBar.value = duration > 0 ? Math.round((current / duration) * 1000) : 0;
+    this.ui.seekBar.value = duration > 0 ? Math.round((displayedCurrent / duration) * 1000) : 0;
     this.updateBufferedBar(current, duration);
   }
 
