@@ -1,9 +1,9 @@
 export function timeLabel(time) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  }).format(new Date(time));
+  const date = new Date(time);
+  if (!Number.isFinite(date.getTime())) return "---- -- -- --:--:--";
+  const part = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${part(date.getMonth() + 1)}-${part(date.getDate())} ` +
+    `${part(date.getHours())}:${part(date.getMinutes())}:${part(date.getSeconds())}`;
 }
 
 export function formatWatchTime(value) {

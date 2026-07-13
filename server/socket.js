@@ -524,6 +524,7 @@ module.exports = function attachSocketHandlers(io, options = {}) {
     };
 
     const recordPlaybackActivity = (state, reason, actor) => {
+      if (isLockedRoom() && ["user-join", "user-leave"].includes(reason)) return null;
       const kind = playbackActivityKind(state, reason);
       if (!kind) return null;
       const now = Date.now();

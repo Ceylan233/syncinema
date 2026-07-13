@@ -18228,13 +18228,12 @@ var SyncController = class {
   }
 };
 
-// client/components/format.js?v=20260711-chat-seconds-1
+// client/components/format.js?v=20260713-chat-date-1
 function timeLabel(time) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  }).format(new Date(time));
+  const date = new Date(time);
+  if (!Number.isFinite(date.getTime())) return "---- -- -- --:--:--";
+  const part = (value2) => String(value2).padStart(2, "0");
+  return `${date.getFullYear()}-${part(date.getMonth() + 1)}-${part(date.getDate())} ${part(date.getHours())}:${part(date.getMinutes())}:${part(date.getSeconds())}`;
 }
 
 // client/components/ChatPanel.js?v=20260711-history-divider-2

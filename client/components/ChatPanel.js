@@ -1,4 +1,4 @@
-import { timeLabel } from "./format.js?v=20260711-chat-seconds-1";
+import { timeLabel } from "./format.js?v=20260713-chat-date-1";
 
 export const ChatPanel = {
   name: "ChatPanel",

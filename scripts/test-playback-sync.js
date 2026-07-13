@@ -573,4 +573,21 @@ assert.equal(
   "an HTTP presence heartbeat before socket join must still count as a first room entry"
 );
 
+const demoPresenceSocket = {
+  id: "demo-presence-socket",
+  data: {},
+  join() {},
+  leave() {},
+  emit() {},
+  to() { return { emit() {} }; }
+};
+io.sockets.sockets.set(demoPresenceSocket.id, demoPresenceSocket);
+const demoRoom = rooms.room("1");
+demoRoom.handleJoin(demoPresenceSocket, { name: "Demo Visitor", clientId: "demo-presence-client" });
+assert.equal(
+  demoRoom.playbackActivities().some((item) => item.kind === "join" && item.actorClientId === "demo-presence-client"),
+  false,
+  "demo room must not record room entry activities"
+);
+
 console.log("Playback sync tests passed");
