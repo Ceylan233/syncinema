@@ -106,6 +106,7 @@ export class CinemaPlayer extends EventTarget {
     this.nativePlayerActive = false;
     this.pseudoFullscreen = false;
     this.pseudoFullscreenHome = null;
+    this.pointerInsideVideoFrame = false;
     this.applyFitMode(this.loadFitMode());
     this.bind();
   }
@@ -241,11 +242,20 @@ export class CinemaPlayer extends EventTarget {
       this.toggleFullscreen();
     });
 
-    this.ui.videoFrame.addEventListener("pointermove", () => this.showControls());
+    this.ui.videoFrame.addEventListener("pointerenter", () => {
+      this.pointerInsideVideoFrame = true;
+    });
+    this.ui.videoFrame.addEventListener("pointermove", () => {
+      this.pointerInsideVideoFrame = true;
+      this.showControls();
+    });
     this.ui.videoFrame.addEventListener("pointerdown", () => this.showControls(false, true));
     this.ui.videoFrame.addEventListener("touchstart", () => this.showControls(false, true), { passive: true });
     this.ui.videoFrame.addEventListener("dblclick", (event) => this.handleFrameDoubleClick(event));
-    this.ui.videoFrame.addEventListener("mouseleave", () => this.scheduleControlsHide());
+    this.ui.videoFrame.addEventListener("mouseleave", () => {
+      this.pointerInsideVideoFrame = false;
+      this.scheduleControlsHide();
+    });
     const handleFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement || document.webkitFullscreenElement || this.pseudoFullscreen);
       this.ui.fullscreenButton?.classList.toggle("is-fullscreen", active);
@@ -1748,14 +1758,50 @@ export class CinemaPlayer extends EventTarget {
 
   handleGlobalKeydown(event) {
     if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    const horizontal = event.key === "ArrowLeft" || event.key === "ArrowRight";
+    const volume = event.key === "ArrowUp" || event.key === "ArrowDown";
+    if (!horizontal && !volume) return;
     const target = event.target;
-    if (target instanceof Element && target.closest("input, textarea, select, [contenteditable='true']")) return;
+    const editable = target instanceof Element
+      ? target.closest("input, textarea, select, [contenteditable='true']")
+      : null;
+    if (volume) {
+      if (!this.videoKeyboardActive()) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.adjustVideoVolume(event.key === "ArrowUp" ? 0.1 : -0.1);
+      return;
+    }
+    if (editable && editable !== this.ui?.seekBar) return;
     if (!this.meta || this.isLiveSource() || !Number.isFinite(this.video.duration) || this.video.duration <= 0) return;
     event.preventDefault();
     event.stopPropagation();
     this.showControls(true);
     this.queueKeyboardSeek(event.key === "ArrowLeft" ? -10 : 10);
+  }
+
+  videoKeyboardActive() {
+    const fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
+    const fullscreenVideo = Boolean(
+      fullscreenElement &&
+      (fullscreenElement === this.ui?.videoFrame || fullscreenElement.contains?.(this.ui?.videoFrame))
+    );
+    return Boolean(this.pointerInsideVideoFrame || this.pseudoFullscreen || fullscreenVideo);
+  }
+
+  adjustVideoVolume(delta) {
+    this.userVolume = Math.min(1, Math.max(0, Math.round((this.userVolume + delta) * 100) / 100));
+    if (this.ui?.videoVolume) this.ui.videoVolume.value = Math.round(this.userVolume * 100);
+    if (this.userVolume <= 0) {
+      this.audioRestoreTimers.forEach((timer) => window.clearTimeout(timer));
+      this.audioRestoreTimers = [];
+      this.mutedForAutoplay = false;
+      this.applyEffectiveVolume();
+    } else {
+      this.enableVideoSound();
+    }
+    localStorage.setItem("pc:video-volume", String(this.userVolume));
+    this.showFeedback(`音量 ${Math.round(this.userVolume * 100)}%`);
   }
 
   handleGlobalKeyup(event) {

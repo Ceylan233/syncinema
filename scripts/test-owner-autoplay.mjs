@@ -116,4 +116,50 @@ assert.equal(
   "a stale local seek event must not be emitted after its user-intent window"
 );
 
+globalThis.Element = globalThis.Element || class Element {};
+const seekBar = new globalThis.Element();
+seekBar.closest = () => seekBar;
+const keyboardActions = [];
+const keyboardPlayer = {
+  meta: { id: "keyboard-video" },
+  ui: { seekBar },
+  video: { duration: 600 },
+  isLiveSource: () => false,
+  showControls() {},
+  queueKeyboardSeek(seconds) { keyboardActions.push(seconds); }
+};
+let prevented = false;
+let stopped = false;
+CinemaPlayer.prototype.handleGlobalKeydown.call(keyboardPlayer, {
+  key: "ArrowRight",
+  target: seekBar,
+  defaultPrevented: false,
+  altKey: false,
+  ctrlKey: false,
+  metaKey: false,
+  shiftKey: false,
+  preventDefault() { prevented = true; },
+  stopPropagation() { stopped = true; }
+});
+assert.deepEqual(keyboardActions, [10], "a focused seek bar must still seek by exactly ten seconds");
+assert.equal(prevented, true, "native range arrow stepping must be disabled on the seek bar");
+assert.equal(stopped, true, "the seek bar must not process the same arrow key a second time");
+
+let volumeDelta = 0;
+keyboardPlayer.pointerInsideVideoFrame = true;
+keyboardPlayer.videoKeyboardActive = () => true;
+keyboardPlayer.adjustVideoVolume = (delta) => { volumeDelta += delta; };
+CinemaPlayer.prototype.handleGlobalKeydown.call(keyboardPlayer, {
+  key: "ArrowUp",
+  target: seekBar,
+  defaultPrevented: false,
+  altKey: false,
+  ctrlKey: false,
+  metaKey: false,
+  shiftKey: false,
+  preventDefault() {},
+  stopPropagation() {}
+});
+assert.equal(volumeDelta, 0.1, "ArrowUp over the video must raise local volume by ten percent");
+
 console.log("Source owner autoplay tests passed");
