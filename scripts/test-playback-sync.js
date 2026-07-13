@@ -112,12 +112,11 @@ const readyState = {
   fitMode: "contain"
 };
 room2.handleWatchState(hostSocket, { ...readyState, hasSource: true });
-assert.equal(room2.playbackSnapshot().barrier.ready, 1, "the barrier must wait for every connected member");
-room2.handleWatchState(guestSocket, readyState);
 const releasedState = room2.playbackSnapshot();
-assert.equal(releasedState.barrier, null, "the barrier must release when every member is ready");
+assert.equal(releasedState.barrier, null, "the barrier must release as soon as the source owner is ready");
 assert.equal(releasedState.paused, false, "barrier release must preserve the requested playing state");
 assert(releasedState.executeAt > Date.now(), "barrier release must schedule one shared future start");
+room2.handleWatchState(guestSocket, readyState);
 assert(releasedState.currentTime < 0.05, "the shared timeline must not advance before executeAt");
 
 let state = room2.applyPlayback(

@@ -165,6 +165,7 @@ function wireSocket() {
 
   room.on("joined", async ({ id, peers, users, playback, videoMeta, chatHistory, playbackActivities, roomId }) => {
     const initialPlayback = playback?.hasVideo ? { ...playback, initialSync: true } : playback;
+    const previousRoomId = currentRoomId;
     selfId = id;
     currentRoomId = roomId || room.roomId();
     ui.setRoom(currentRoomId);
@@ -182,7 +183,9 @@ function wireSocket() {
     ui.setMicControl({ enabled: voice.enabled });
     updateVoiceConnectionStatus();
 
-    if (Array.isArray(chatHistory)) ui.renderMessages(chatHistory);
+    if (Array.isArray(chatHistory)) {
+      ui.renderMessages(chatHistory, { preserveSystem: previousRoomId === currentRoomId });
+    }
     if (Array.isArray(playbackActivities)) ui.renderPlaybackActivities(playbackActivities);
     if (announcedRoomId !== currentRoomId) {
       announcedRoomId = currentRoomId;

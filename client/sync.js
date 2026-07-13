@@ -34,7 +34,7 @@ export class SyncController {
 
   start() {
     this.player.addEventListener("local-sync", (event) => this.send(event.detail));
-    ["play", "pause", "seeked", "waiting", "canplay"].forEach((eventName) => {
+    ["play", "pause", "seeked", "waiting", "loadedmetadata", "loadeddata", "canplay"].forEach((eventName) => {
       this.player.video.addEventListener(eventName, () => this.sendWatchState());
     });
     window.setInterval(() => this.sendWatchState(), 700);

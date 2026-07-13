@@ -17993,7 +17993,7 @@ var SyncController = class {
   }
   start() {
     this.player.addEventListener("local-sync", (event) => this.send(event.detail));
-    ["play", "pause", "seeked", "waiting", "canplay"].forEach((eventName) => {
+    ["play", "pause", "seeked", "waiting", "loadedmetadata", "loadeddata", "canplay"].forEach((eventName) => {
       this.player.video.addEventListener(eventName, () => this.sendWatchState());
     });
     window.setInterval(() => this.sendWatchState(), 700);
@@ -38374,11 +38374,13 @@ var UI = class {
     this.scrollMessages();
     return true;
   }
-  renderMessages(messages = []) {
+  renderMessages(messages = [], { preserveSystem = false } = {}) {
+    const systemMessages = preserveSystem ? this.state.messages.filter((message) => message.system) : [];
     this.messageIds.clear();
     this.state.messages = [];
     messages.forEach((message) => this.addMessage(message));
     this.state.historyMessageCount = this.state.messages.length;
+    this.state.messages.push(...systemMessages);
     this.scrollMessages();
   }
   addSystemMessage(text) {
@@ -39172,6 +39174,7 @@ function wireSocket() {
   });
   room.on("joined", async ({ id, peers, users, playback, videoMeta, chatHistory, playbackActivities, roomId }) => {
     const initialPlayback = playback?.hasVideo ? { ...playback, initialSync: true } : playback;
+    const previousRoomId = currentRoomId;
     selfId = id;
     currentRoomId = roomId || room.roomId();
     ui.setRoom(currentRoomId);
@@ -39188,7 +39191,9 @@ function wireSocket() {
     await mesh.setLocalStream(voice.stream || null);
     ui.setMicControl({ enabled: voice.enabled });
     updateVoiceConnectionStatus();
-    if (Array.isArray(chatHistory)) ui.renderMessages(chatHistory);
+    if (Array.isArray(chatHistory)) {
+      ui.renderMessages(chatHistory, { preserveSystem: previousRoomId === currentRoomId });
+    }
     if (Array.isArray(playbackActivities)) ui.renderPlaybackActivities(playbackActivities);
     if (announcedRoomId !== currentRoomId) {
       announcedRoomId = currentRoomId;

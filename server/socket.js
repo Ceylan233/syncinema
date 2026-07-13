@@ -407,16 +407,23 @@ module.exports = function attachSocketHandlers(io, options = {}) {
     const barrierStatus = () => {
       if (!startupBarrier) return null;
       const members = connectedRoomUsers();
-      const ready = members.filter(({ user }) => {
+      const isReady = ({ user }) => {
         const watch = user.watchState;
         if (!watch || watch.videoId !== startupBarrier.videoId || watch.readyState < 3 || watch.waiting) return false;
         return watch.hasSource || watch.bufferedAhead >= STARTUP_BUFFER_SECONDS;
-      });
+      };
+      const ready = members.filter(isReady);
+      const owner = members.find(({ socketId, user }) => (
+        (activeVideoMeta?.ownerClientId && user.clientId === activeVideoMeta.ownerClientId) ||
+        (activeVideoMeta?.ownerId && socketId === activeVideoMeta.ownerId)
+      ));
+      const ownerReady = owner ? isReady(owner) : false;
       return {
         pending: true,
         videoId: startupBarrier.videoId,
         ready: ready.length,
         total: members.length,
+        ownerReady,
         deadlineAt: startupBarrier.deadlineAt
       };
     };
@@ -451,7 +458,10 @@ module.exports = function attachSocketHandlers(io, options = {}) {
     const releaseStartupBarrier = (force = false) => {
       if (!startupBarrier || !activeVideoMeta || startupBarrier.videoId !== activeVideoMeta.id) return false;
       const status = barrierStatus();
-      if (!force && status.total > 0 && status.ready < status.total) return false;
+      // A weak viewer must not hold the source owner and every ready viewer at
+      // the startup line. Once the owner can play, other viewers catch up from
+      // the authoritative timeline as their own buffers become ready.
+      if (!force && status.total > 0 && !status.ownerReady) return false;
       const barrier = startupBarrier;
       startupBarrier = null;
       if (startupBarrierTimer) clearTimeout(startupBarrierTimer);

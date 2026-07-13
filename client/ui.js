@@ -477,11 +477,15 @@ export class UI {
     return true;
   }
 
-  renderMessages(messages = []) {
+  renderMessages(messages = [], { preserveSystem = false } = {}) {
+    const systemMessages = preserveSystem
+      ? this.state.messages.filter((message) => message.system)
+      : [];
     this.messageIds.clear();
     this.state.messages = [];
     messages.forEach((message) => this.addMessage(message));
     this.state.historyMessageCount = this.state.messages.length;
+    this.state.messages.push(...systemMessages);
     this.scrollMessages();
   }
 
