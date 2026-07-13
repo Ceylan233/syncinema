@@ -162,4 +162,54 @@ CinemaPlayer.prototype.handleGlobalKeydown.call(keyboardPlayer, {
 });
 assert.equal(volumeDelta, 0.1, "ArrowUp over the video must raise local volume by ten percent");
 
+const committedSeeks = [];
+const keyboardCommitPlayer = {
+  keyboardSeekTarget: 120,
+  keyboardSeekTimer: 1,
+  keyboardSeekDelta: 30,
+  pendingSeekTarget: null,
+  video: { currentTime: 20 },
+  markUserSync() {},
+  scheduleSeekSync(reason, delay, targetTime) {
+    committedSeeks.push({ reason, delay, targetTime });
+  }
+};
+CinemaPlayer.prototype.commitKeyboardSeek.call(keyboardCommitPlayer);
+assert.equal(keyboardCommitPlayer.video.currentTime, 120);
+assert.equal(keyboardCommitPlayer.pendingSeekTarget, 120);
+assert.deepEqual(
+  committedSeeks,
+  [{ reason: "skip", delay: 120, targetTime: 120 }],
+  "keyboard seeking must submit its exact guarded target"
+);
+
+const doubleClickSeeks = [];
+const doubleClickPlayer = {
+  video: { currentTime: 80, duration: 600 },
+  pendingSeekTarget: null,
+  isLiveSource: () => false,
+  markUserSync() {},
+  scheduleSeekSync(reason, delay, targetTime) {
+    doubleClickSeeks.push({ reason, delay, targetTime });
+  },
+  showFeedback() {}
+};
+CinemaPlayer.prototype.seekRelative.call(doubleClickPlayer, 10);
+assert.equal(doubleClickPlayer.video.currentTime, 90);
+assert.equal(doubleClickPlayer.pendingSeekTarget, 90);
+assert.deepEqual(
+  doubleClickSeeks,
+  [{ reason: "skip", delay: 120, targetTime: 90 }],
+  "double-click seeking must submit its exact guarded target"
+);
+
+const staleGuard = {
+  draggingSeek: false,
+  localSeekCommitUntil: Date.now() + 1000,
+  localSeekGuardTarget: 100,
+  remoteTargetTime: () => 40
+};
+await CinemaPlayer.prototype.applyRemote.call(staleGuard, { hasVideo: true });
+assert.equal(staleGuard.applyingRemote, undefined, "stale server time must not enter remote apply while a seek is unacknowledged");
+
 console.log("Source owner autoplay tests passed");

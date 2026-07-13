@@ -155,6 +155,7 @@ export class SyncController {
       state.reason !== "heartbeat"
     );
     if (this.isActiveOwnSeek(state, isSelf)) {
+      this.player.acknowledgeLocalSeek?.(state);
       this.lastSeenVersion = Math.max(this.lastSeenVersion, state.version);
       if (this.scheduledState && Number(this.scheduledState.version || 0) <= Number(state.version || 0)) {
         window.clearTimeout(this.scheduledTimer);

@@ -40,6 +40,8 @@ export class CinemaPlayer extends EventTarget {
     this.seekSyncTimer = null;
     this.pendingSeekTarget = null;
     this.localSeekCommitUntil = 0;
+    this.localSeekGuardTarget = null;
+    this.localSeekGuardTimer = null;
     this.keyboardSeekTimer = null;
     this.keyboardSeekTarget = null;
     this.keyboardSeekDelta = 0;
@@ -1258,7 +1260,7 @@ export class CinemaPlayer extends EventTarget {
 
   scheduleSeekSync(reason, delay = 120, targetTime = null) {
     window.clearTimeout(this.seekSyncTimer);
-    if (Number.isFinite(targetTime)) this.localSeekCommitUntil = Date.now() + 1500;
+    if (Number.isFinite(targetTime)) this.protectLocalSeekTarget(targetTime);
     this.seekSyncTimer = window.setTimeout(() => {
       this.seekSyncTimer = null;
       this.markUserSync(800);
@@ -1268,6 +1270,31 @@ export class CinemaPlayer extends EventTarget {
       );
       if (Number.isFinite(targetTime)) this.releasePendingSeekTarget(targetTime);
     }, delay);
+  }
+
+  protectLocalSeekTarget(targetTime, duration = 8000) {
+    if (!Number.isFinite(targetTime)) return;
+    this.localSeekGuardTarget = targetTime;
+    this.localSeekCommitUntil = Date.now() + duration;
+    window.clearTimeout(this.localSeekGuardTimer);
+    this.localSeekGuardTimer = window.setTimeout(() => {
+      if (this.localSeekGuardTarget !== targetTime) return;
+      this.localSeekGuardTarget = null;
+      this.localSeekCommitUntil = 0;
+      this.localSeekGuardTimer = null;
+    }, duration);
+  }
+
+  acknowledgeLocalSeek(state) {
+    if (!Number.isFinite(this.localSeekGuardTarget)) return false;
+    if (!["seek-release", "skip"].includes(String(state?.reason || ""))) return false;
+    const targetTime = this.remoteTargetTime(state);
+    if (!Number.isFinite(targetTime) || Math.abs(targetTime - this.localSeekGuardTarget) > 0.75) return false;
+    window.clearTimeout(this.localSeekGuardTimer);
+    this.localSeekGuardTimer = null;
+    this.localSeekGuardTarget = null;
+    this.localSeekCommitUntil = 0;
+    return true;
   }
 
   releasePendingSeekTarget(targetTime, deadline = Date.now() + 60000) {
@@ -1483,9 +1510,9 @@ export class CinemaPlayer extends EventTarget {
   async applyRemote(state) {
     if (!state?.hasVideo) return;
     if (this.draggingSeek) return;
-    if (Date.now() < this.localSeekCommitUntil && Number.isFinite(this.pendingSeekTarget)) {
+    if (Date.now() < this.localSeekCommitUntil && Number.isFinite(this.localSeekGuardTarget)) {
       const incomingTarget = this.remoteTargetTime(state);
-      if (!Number.isFinite(incomingTarget) || Math.abs(incomingTarget - this.pendingSeekTarget) > 0.75) return;
+      if (!Number.isFinite(incomingTarget) || Math.abs(incomingTarget - this.localSeekGuardTarget) > 0.75) return;
     }
     const applyGeneration = ++this.remoteApplyGeneration;
     this.applyingRemote = true;
@@ -1836,8 +1863,9 @@ export class CinemaPlayer extends EventTarget {
     this.keyboardSeekDelta = 0;
     if (!Number.isFinite(targetTime)) return;
     this.markUserSync(2500);
+    this.pendingSeekTarget = targetTime;
+    this.scheduleSeekSync("skip", 120, targetTime);
     this.video.currentTime = targetTime;
-    if (!this.applyingRemote) this.scheduleSeekSync("skip", 120);
   }
 
   unlockVideoAudio() {
@@ -2076,11 +2104,12 @@ export class CinemaPlayer extends EventTarget {
       return;
     }
     if (!Number.isFinite(this.video.duration)) return;
-    this.markUserSync();
+    this.markUserSync(2500);
     const nextTime = Math.min(this.video.duration, Math.max(0, (this.video.currentTime || 0) + seconds));
+    this.pendingSeekTarget = nextTime;
+    this.scheduleSeekSync("skip", 120, nextTime);
     this.video.currentTime = nextTime;
     this.showFeedback(seconds > 0 ? `快进 ${seconds}s` : `快退 ${Math.abs(seconds)}s`);
-    if (!this.applyingRemote) this.scheduleSeekSync("skip", 180);
   }
 
   showFeedback(text) {

@@ -139,6 +139,26 @@ await new Promise((resolve) => setTimeout(resolve, 110));
 assert.equal(applied.length, 3, "a newer scheduled version must cancel the older command");
 assert.equal(applied[2].version, 5);
 
+let acknowledgedSeek = null;
+player.acknowledgeLocalSeek = (state) => { acknowledgedSeek = state; };
+player.userSyncUntil = Date.now() + 1000;
+assert.equal(
+  controller.receive({
+    hasVideo: true,
+    videoId: "video-test",
+    version: 6,
+    reason: "skip",
+    currentTime: 75,
+    paused: false,
+    executeAt: Date.now() + 300,
+    by: { id: "self-socket", clientId: "self-client" }
+  }),
+  false,
+  "an active local seek must not reapply its own scheduled acknowledgement"
+);
+assert.equal(acknowledgedSeek?.currentTime, 75, "the local guard must release only after the server acknowledges its target");
+player.userSyncUntil = 0;
+
 let httpSends = 0;
 controller.sendHttpPlayback = async () => {
   httpSends += 1;
