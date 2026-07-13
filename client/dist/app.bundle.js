@@ -31,7 +31,7 @@ function createId(prefix = "pc") {
   return `${prefix}-${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-// ../syncinema-1.3-beta/node_modules/engine.io-parser/build/esm/commons.js
+// ../../node_modules/engine.io-parser/build/esm/commons.js
 var PACKET_TYPES = /* @__PURE__ */ Object.create(null);
 PACKET_TYPES["open"] = "0";
 PACKET_TYPES["close"] = "1";
@@ -46,7 +46,7 @@ Object.keys(PACKET_TYPES).forEach((key) => {
 });
 var ERROR_PACKET = { type: "error", data: "parser error" };
 
-// ../syncinema-1.3-beta/node_modules/engine.io-parser/build/esm/encodePacket.browser.js
+// ../../node_modules/engine.io-parser/build/esm/encodePacket.browser.js
 var withNativeBlob = typeof Blob === "function" || typeof Blob !== "undefined" && Object.prototype.toString.call(Blob) === "[object BlobConstructor]";
 var withNativeArrayBuffer = typeof ArrayBuffer === "function";
 var isView = (obj) => {
@@ -100,7 +100,7 @@ function encodePacketToBinary(packet, callback) {
   });
 }
 
-// ../syncinema-1.3-beta/node_modules/engine.io-parser/build/esm/contrib/base64-arraybuffer.js
+// ../../node_modules/engine.io-parser/build/esm/contrib/base64-arraybuffer.js
 var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 var lookup = typeof Uint8Array === "undefined" ? [] : new Uint8Array(256);
 for (let i = 0; i < chars.length; i++) {
@@ -127,7 +127,7 @@ var decode = (base64) => {
   return arraybuffer;
 };
 
-// ../syncinema-1.3-beta/node_modules/engine.io-parser/build/esm/decodePacket.browser.js
+// ../../node_modules/engine.io-parser/build/esm/decodePacket.browser.js
 var withNativeArrayBuffer2 = typeof ArrayBuffer === "function";
 var decodePacket = (encodedPacket, binaryType) => {
   if (typeof encodedPacket !== "string") {
@@ -180,7 +180,7 @@ var mapBinary = (data, binaryType) => {
   }
 };
 
-// ../syncinema-1.3-beta/node_modules/engine.io-parser/build/esm/index.js
+// ../../node_modules/engine.io-parser/build/esm/index.js
 var SEPARATOR = String.fromCharCode(30);
 var encodePayload = (packets, callback) => {
   const length = packets.length;
@@ -322,7 +322,7 @@ function createPacketDecoderStream(maxPayload, binaryType) {
 }
 var protocol = 4;
 
-// ../syncinema-1.3-beta/node_modules/@socket.io/component-emitter/lib/esm/index.js
+// ../../node_modules/@socket.io/component-emitter/lib/esm/index.js
 function Emitter(obj) {
   if (obj) return mixin(obj);
 }
@@ -394,7 +394,7 @@ Emitter.prototype.hasListeners = function(event) {
   return !!this.listeners(event).length;
 };
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/globals.js
+// ../../node_modules/engine.io-client/build/esm/globals.js
 var nextTick = (() => {
   const isPromiseAvailable = typeof Promise === "function" && typeof Promise.resolve === "function";
   if (isPromiseAvailable) {
@@ -416,7 +416,7 @@ var defaultBinaryType = "arraybuffer";
 function createCookieJar() {
 }
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/util.js
+// ../../node_modules/engine.io-client/build/esm/util.js
 function pick(obj, ...attr) {
   return attr.reduce((acc, k) => {
     if (obj.hasOwnProperty(k)) {
@@ -464,7 +464,7 @@ function randomString() {
   return Date.now().toString(36).substring(3) + Math.random().toString(36).substring(2, 5);
 }
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/contrib/parseqs.js
+// ../../node_modules/engine.io-client/build/esm/contrib/parseqs.js
 function encode(obj) {
   let str = "";
   for (let i in obj) {
@@ -486,7 +486,7 @@ function decode2(qs) {
   return qry;
 }
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/transport.js
+// ../../node_modules/engine.io-client/build/esm/transport.js
 var TransportError = class extends Error {
   constructor(reason, description, context) {
     super(reason);
@@ -617,7 +617,7 @@ var Transport = class extends Emitter {
   }
 };
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/transports/polling.js
+// ../../node_modules/engine.io-client/build/esm/transports/polling.js
 var Polling = class extends Transport {
   constructor() {
     super(...arguments);
@@ -749,7 +749,7 @@ var Polling = class extends Transport {
   }
 };
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/contrib/has-cors.js
+// ../../node_modules/engine.io-client/build/esm/contrib/has-cors.js
 var value = false;
 try {
   value = typeof XMLHttpRequest !== "undefined" && "withCredentials" in new XMLHttpRequest();
@@ -757,7 +757,7 @@ try {
 }
 var hasCORS = value;
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/transports/polling-xhr.js
+// ../../node_modules/engine.io-client/build/esm/transports/polling-xhr.js
 function empty() {
 }
 var BaseXHR = class extends Polling {
@@ -998,7 +998,7 @@ function newRequest(opts) {
   }
 }
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/transports/websocket.js
+// ../../node_modules/engine.io-client/build/esm/transports/websocket.js
 var isReactNative = typeof navigator !== "undefined" && typeof navigator.product === "string" && navigator.product.toLowerCase() === "reactnative";
 var BaseWS = class extends Transport {
   get name() {
@@ -1092,7 +1092,7 @@ var WS = class extends BaseWS {
   }
 };
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/transports/webtransport.js
+// ../../node_modules/engine.io-client/build/esm/transports/webtransport.js
 var WT = class extends Transport {
   get name() {
     return "webtransport";
@@ -1155,14 +1155,14 @@ var WT = class extends Transport {
   }
 };
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/transports/index.js
+// ../../node_modules/engine.io-client/build/esm/transports/index.js
 var transports = {
   websocket: WS,
   webtransport: WT,
   polling: XHR
 };
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/contrib/parseuri.js
+// ../../node_modules/engine.io-client/build/esm/contrib/parseuri.js
 var re = /^(?:(?![^:@\/?#]+:[^:@\/]*@)(http|https|ws|wss):\/\/)?((?:(([^:@\/?#]*)(?::([^:@\/?#]*))?)?@)?((?:[a-f0-9]{0,4}:){2,7}[a-f0-9]{0,4}|[^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/;
 var parts = [
   "source",
@@ -1222,7 +1222,7 @@ function queryKey(uri, query) {
   return data;
 }
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/socket.js
+// ../../node_modules/engine.io-client/build/esm/socket.js
 var withEventListeners = typeof addEventListener === "function" && typeof removeEventListener === "function";
 var OFFLINE_EVENT_LISTENERS = [];
 if (withEventListeners) {
@@ -1790,10 +1790,10 @@ var Socket = class extends SocketWithUpgrade {
   }
 };
 
-// ../syncinema-1.3-beta/node_modules/engine.io-client/build/esm/index.js
+// ../../node_modules/engine.io-client/build/esm/index.js
 var protocol2 = Socket.protocol;
 
-// ../syncinema-1.3-beta/node_modules/socket.io-client/build/esm/url.js
+// ../../node_modules/socket.io-client/build/esm/url.js
 function url(uri, path = "", loc) {
   let obj = uri;
   loc = loc || typeof location !== "undefined" && location;
@@ -1831,7 +1831,7 @@ function url(uri, path = "", loc) {
   return obj;
 }
 
-// ../syncinema-1.3-beta/node_modules/socket.io-parser/build/esm/index.js
+// ../../node_modules/socket.io-parser/build/esm/index.js
 var esm_exports = {};
 __export(esm_exports, {
   Decoder: () => Decoder,
@@ -1841,7 +1841,7 @@ __export(esm_exports, {
   protocol: () => protocol3
 });
 
-// ../syncinema-1.3-beta/node_modules/socket.io-parser/build/esm/is-binary.js
+// ../../node_modules/socket.io-parser/build/esm/is-binary.js
 var withNativeArrayBuffer3 = typeof ArrayBuffer === "function";
 var isView2 = (obj) => {
   return typeof ArrayBuffer.isView === "function" ? ArrayBuffer.isView(obj) : obj.buffer instanceof ArrayBuffer;
@@ -1878,7 +1878,7 @@ function hasBinary(obj, toJSON) {
   return false;
 }
 
-// ../syncinema-1.3-beta/node_modules/socket.io-parser/build/esm/binary.js
+// ../../node_modules/socket.io-parser/build/esm/binary.js
 function deconstructPacket(packet) {
   const buffers = [];
   const packetData = packet.data;
@@ -1940,7 +1940,7 @@ function _reconstructPacket(data, buffers) {
   return data;
 }
 
-// ../syncinema-1.3-beta/node_modules/socket.io-parser/build/esm/index.js
+// ../../node_modules/socket.io-parser/build/esm/index.js
 var RESERVED_EVENTS = [
   "connect",
   // used on the client side
@@ -2236,7 +2236,7 @@ function isPacketValid(packet) {
   return isNamespaceValid(packet.nsp) && isAckIdValid(packet.id) && isDataValid(packet.type, packet.data);
 }
 
-// ../syncinema-1.3-beta/node_modules/socket.io-client/build/esm/on.js
+// ../../node_modules/socket.io-client/build/esm/on.js
 function on(obj, ev, fn) {
   obj.on(ev, fn);
   return function subDestroy() {
@@ -2244,7 +2244,7 @@ function on(obj, ev, fn) {
   };
 }
 
-// ../syncinema-1.3-beta/node_modules/socket.io-client/build/esm/socket.js
+// ../../node_modules/socket.io-client/build/esm/socket.js
 var RESERVED_EVENTS2 = Object.freeze({
   connect: 1,
   connect_error: 1,
@@ -3017,7 +3017,7 @@ var Socket2 = class extends Emitter {
   }
 };
 
-// ../syncinema-1.3-beta/node_modules/socket.io-client/build/esm/contrib/backo2.js
+// ../../node_modules/socket.io-client/build/esm/contrib/backo2.js
 function Backoff(opts) {
   opts = opts || {};
   this.ms = opts.min || 100;
@@ -3048,7 +3048,7 @@ Backoff.prototype.setJitter = function(jitter) {
   this.jitter = jitter;
 };
 
-// ../syncinema-1.3-beta/node_modules/socket.io-client/build/esm/manager.js
+// ../../node_modules/socket.io-client/build/esm/manager.js
 var Manager = class extends Emitter {
   constructor(uri, opts) {
     var _a286;
@@ -3398,7 +3398,7 @@ var Manager = class extends Emitter {
   }
 };
 
-// ../syncinema-1.3-beta/node_modules/socket.io-client/build/esm/index.js
+// ../../node_modules/socket.io-client/build/esm/index.js
 var cache = {};
 function lookup2(uri, opts) {
   if (typeof uri === "object") {
@@ -15978,6 +15978,10 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     this.fitResizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(() => this.updateVideoGeometry()) : null;
     if (this.ui.videoSurface) this.fitResizeObserver?.observe(this.ui.videoSurface);
     this.rateCorrectionTimer = null;
+    this.programmaticRateValue = 1;
+    this.programmaticRateUntil = 0;
+    this.programmaticSeekTarget = null;
+    this.programmaticSeekUntil = 0;
     this.remoteApplyGeneration = 0;
     this.independentMobilePlayer = usesIndependentMobilePlayer();
     this.nativePlayerActive = false;
@@ -16142,9 +16146,10 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
             this.retryRemoteAutoplay("unexpected-pause");
           }
         }
-        if (!this.applyingRemote && this.isIndependentPlayerInteraction(eventName)) {
+        const programmaticMediaEvent = eventName === "ratechange" && this.isProgrammaticRateChange() || ["seeking", "seeked"].includes(eventName) && this.isProgrammaticSeekEvent(eventName);
+        if (!programmaticMediaEvent && !this.applyingRemote && this.isIndependentPlayerInteraction(eventName)) {
           this.syncIndependentPlayerEvent(eventName);
-        } else if (!this.applyingRemote && this.shouldSyncUserEvent(eventName)) {
+        } else if (!programmaticMediaEvent && !this.applyingRemote && this.shouldSyncUserEvent(eventName)) {
           this.emitSync(eventName, { userIntent: this.hasLocalSource() });
         }
       });
@@ -16167,7 +16172,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
       this.updateNaturalAspect();
       this.updateLocalQualityLabel();
       if (Number.isFinite(this.restoreAfterMetadata)) {
-        this.video.currentTime = Math.min(this.restoreAfterMetadata, this.video.duration || this.restoreAfterMetadata);
+        this.setProgrammaticCurrentTime(Math.min(this.restoreAfterMetadata, this.video.duration || this.restoreAfterMetadata));
         this.restoreAfterMetadata = null;
       }
       this.updateControls();
@@ -16356,7 +16361,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     if (options.resetPlayback) {
       this.video.pause();
       this.restoreAfterMetadata = 0;
-      this.video.currentTime = 0;
+      this.setProgrammaticCurrentTime(0);
       this.ui.seekBar.value = 0;
       this.ui.currentTime.textContent = formatTime(0);
     }
@@ -16648,7 +16653,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     const onManifest = () => {
       this.hls?.off(window.Hls.Events.MANIFEST_PARSED, onManifest);
       if (!this.hls || token !== this.onlineSourceToken) return;
-      if (Number.isFinite(restoreTime)) this.video.currentTime = restoreTime;
+      if (Number.isFinite(restoreTime)) this.setProgrammaticCurrentTime(restoreTime);
       if (resume) this.playRemoteWithFallback().catch(() => {
       });
     };
@@ -16704,7 +16709,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     this.video.src = this.vodLineOptions[nextIndex];
     this.video.load();
     this.video.addEventListener("loadedmetadata", () => {
-      this.video.currentTime = Math.min(restoreTime, this.video.duration || restoreTime);
+      this.setProgrammaticCurrentTime(Math.min(restoreTime, this.video.duration || restoreTime));
       if (resume) this.playRemoteWithFallback().catch(() => {
       });
     }, { once: true });
@@ -16991,7 +16996,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     this.video.addEventListener("loadedmetadata", () => {
       if (token !== this.onlineSourceToken) return;
       if (Number.isFinite(restoreTime)) {
-        this.video.currentTime = Math.min(restoreTime, this.video.duration || restoreTime);
+        this.setProgrammaticCurrentTime(Math.min(restoreTime, this.video.duration || restoreTime));
       }
       if (resume) this.playRemoteWithFallback().catch(() => {
       });
@@ -17048,7 +17053,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     if (lag <= 0) return;
     if (!force && lag <= 12) return;
     try {
-      this.video.currentTime = edge;
+      this.setProgrammaticCurrentTime(edge);
     } catch {
     }
   }
@@ -17113,6 +17118,27 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
   markUserSync(duration = 1200) {
     this.userSyncUntil = Math.max(Number(this.userSyncUntil || 0), Date.now() + duration);
   }
+  setProgrammaticPlaybackRate(value2) {
+    const rate = Math.max(0.25, Math.min(4, Number(value2) || 1));
+    this.programmaticRateValue = rate;
+    this.programmaticRateUntil = Date.now() + 1e3;
+    this.video.playbackRate = rate;
+  }
+  isProgrammaticRateChange() {
+    return Date.now() < this.programmaticRateUntil && Math.abs(Number(this.video.playbackRate || 1) - this.programmaticRateValue) < 1e-3;
+  }
+  setProgrammaticCurrentTime(value2, duration = 8e3) {
+    const target = Math.max(0, Number(value2) || 0);
+    this.programmaticSeekTarget = target;
+    this.programmaticSeekUntil = Date.now() + duration;
+    this.video.currentTime = target;
+  }
+  isProgrammaticSeekEvent(eventName) {
+    if (Date.now() >= this.programmaticSeekUntil || !Number.isFinite(this.programmaticSeekTarget)) return false;
+    if (Math.abs(Number(this.video.currentTime || 0) - this.programmaticSeekTarget) > 3) return false;
+    if (eventName === "seeked") this.programmaticSeekUntil = Date.now() + 250;
+    return true;
+  }
   isIndependentPlayerInteraction(eventName) {
     const nativeFullscreen = this.nativePlayerActive || Boolean(this.video.webkitDisplayingFullscreen);
     if (nativeFullscreen) return ["play", "pause", "seeking", "seeked", "ratechange"].includes(eventName);
@@ -17138,6 +17164,9 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
       return;
     }
     if (eventName === "ratechange") {
+      const selectedRate = normalizeControlRate(this.video.playbackRate);
+      this.ui.rateSelect.value = String(selectedRate);
+      this.markUserSync();
       this.emitSync("ratechange", { userIntent: true });
     }
   }
@@ -17155,7 +17184,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     const targetTime = this.remoteTargetTime({ ...state, paused: true });
     if (!Number.isFinite(targetTime) || !this.isBuffered(targetTime)) return;
     try {
-      this.video.currentTime = targetTime;
+      this.setProgrammaticCurrentTime(targetTime);
     } catch {
     }
   }
@@ -17199,12 +17228,12 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
         if (canCorrectRate) {
           const localTime = this.video.currentTime || 0;
           const correction = drift < 0.75 ? Math.min(0.06, 0.03 + drift * 0.04) : Math.min(0.12, 0.08 + drift * 0.016);
-          this.video.playbackRate = localTime < targetTime ? Math.min(4, baseRate * (1 + correction)) : Math.max(0.25, baseRate * (1 - correction));
+          this.setProgrammaticPlaybackRate(localTime < targetTime ? Math.min(4, baseRate * (1 + correction)) : Math.max(0.25, baseRate * (1 - correction)));
           this.rateCorrectionTimer = window.setTimeout(() => {
-            this.video.playbackRate = baseRate;
+            this.setProgrammaticPlaybackRate(baseRate);
           }, drift < 0.75 ? 900 : 1400);
         } else {
-          this.video.playbackRate = baseRate;
+          this.setProgrammaticPlaybackRate(baseRate);
         }
         this.ui.rateSelect.value = String(baseRate);
       }
@@ -17215,7 +17244,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
         if (this.video.readyState < HTMLMediaElement.HAVE_METADATA) {
           this.restoreAfterMetadata = targetTime;
         } else {
-          this.video.currentTime = targetTime;
+          this.setProgrammaticCurrentTime(targetTime);
           if (!state.paused && this.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
             await this.waitForPlayableNear(targetTime, 1800);
             if (applyGeneration !== this.remoteApplyGeneration) return;
@@ -17331,7 +17360,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
         const start2 = this.video.buffered.start(index);
         const end = this.video.buffered.end(index);
         const stableStart = Math.max(start2, end - targetSeconds);
-        if (Math.abs(this.video.currentTime - stableStart) > 0.25) this.video.currentTime = stableStart;
+        if (Math.abs(this.video.currentTime - stableStart) > 0.25) this.setProgrammaticCurrentTime(stableStart);
       }
       this.liveStartupReady = true;
       if (this.userVolume > 0 && this.canUnmuteAudibly()) {
@@ -18721,7 +18750,7 @@ var TopBar = {
   `
 };
 
-// ../syncinema-1.3-beta/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js
+// ../../node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js
 var runtime_dom_esm_bundler_exports = {};
 __export(runtime_dom_esm_bundler_exports, {
   BaseTransition: () => BaseTransition,
@@ -18896,7 +18925,7 @@ __export(runtime_dom_esm_bundler_exports, {
   withScopeId: () => withScopeId
 });
 
-// ../syncinema-1.3-beta/node_modules/@vue/shared/dist/shared.esm-bundler.js
+// ../../node_modules/@vue/shared/dist/shared.esm-bundler.js
 // @__NO_SIDE_EFFECTS__
 function makeMap(str) {
   const map2 = /* @__PURE__ */ Object.create(null);
@@ -19283,7 +19312,7 @@ function normalizeCssVarValue(value2) {
   return String(value2);
 }
 
-// ../syncinema-1.3-beta/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js
+// ../../node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js
 function warn(msg, ...args) {
   console.warn(`[Vue warn] ${msg}`, ...args);
 }
@@ -21161,7 +21190,7 @@ function traverse(value2, depth = Infinity, seen2) {
   return value2;
 }
 
-// ../syncinema-1.3-beta/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js
+// ../../node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js
 var stack = [];
 function pushWarningContext(vnode) {
   stack.push(vnode);
@@ -29892,7 +29921,7 @@ var resolveFilter = null;
 var compatUtils = null;
 var DeprecationTypes = null;
 
-// ../syncinema-1.3-beta/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js
+// ../../node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js
 var policy = void 0;
 var tt = typeof window !== "undefined" && window.trustedTypes;
 if (tt) {
@@ -31870,7 +31899,7 @@ var initDirectivesForSSR = () => {
   }
 };
 
-// ../syncinema-1.3-beta/node_modules/@vue/compiler-core/dist/compiler-core.esm-bundler.js
+// ../../node_modules/@vue/compiler-core/dist/compiler-core.esm-bundler.js
 var FRAGMENT = /* @__PURE__ */ Symbol(true ? `Fragment` : ``);
 var TELEPORT = /* @__PURE__ */ Symbol(true ? `Teleport` : ``);
 var SUSPENSE = /* @__PURE__ */ Symbol(true ? `Suspense` : ``);
@@ -37186,7 +37215,7 @@ function baseCompile(source, options = {}) {
 }
 var noopDirectiveTransform = () => ({ props: [] });
 
-// ../syncinema-1.3-beta/node_modules/@vue/compiler-dom/dist/compiler-dom.esm-bundler.js
+// ../../node_modules/@vue/compiler-dom/dist/compiler-dom.esm-bundler.js
 var V_MODEL_RADIO = /* @__PURE__ */ Symbol(true ? `vModelRadio` : ``);
 var V_MODEL_CHECKBOX = /* @__PURE__ */ Symbol(
   true ? `vModelCheckbox` : ``
@@ -37824,7 +37853,7 @@ function compile2(src, options = {}) {
   );
 }
 
-// ../syncinema-1.3-beta/node_modules/vue/dist/vue.esm-bundler.js
+// ../../node_modules/vue/dist/vue.esm-bundler.js
 function initDev() {
   {
     initCustomFormatter();
@@ -37906,6 +37935,9 @@ function playbackActivityText(activity = {}) {
   if (activity.kind === "replay") return `${name} 从头重播`;
   if (activity.kind === "seek") return `${name} 跳转到 ${playbackTimeLabel(activity.currentTime)}`;
   if (activity.kind === "rate") return `${name} 调整倍速为 ${Number(activity.playbackRate || 1)}x`;
+  if (activity.kind === "source") return `${name} 切换视频为 ${String(activity.fileName || "新视频")}`;
+  if (activity.kind === "join") return `${name} 进入房间`;
+  if (activity.kind === "leave") return `${name} 离开房间`;
   if (activity.kind === "fit") {
     const labels = { contain: "适应", "ratio-16-9": "16:9", "ratio-4-3": "4:3", fill: "拉伸铺满" };
     return `${name} 调整画面比例为 ${labels[activity.fitMode] || activity.fitMode}`;
@@ -38352,9 +38384,9 @@ var UI = class {
       time: Number(activity.time || Date.now()),
       text: playbackActivityText(activity)
     };
-    this.state.playbackActivities.push(item);
+    this.state.playbackActivities.unshift(item);
     if (this.state.playbackActivities.length > 100) {
-      const removed = this.state.playbackActivities.splice(0, this.state.playbackActivities.length - 100);
+      const removed = this.state.playbackActivities.splice(100);
       removed.forEach((entry) => this.playbackActivityIds.delete(entry.id));
     }
     if (notify) {
@@ -39914,6 +39946,7 @@ async function handleChatCommand(text, senderName) {
   if (["/clear", "/清理聊天记录", "/清屏", "/清理"].includes(command)) {
     try {
       await room.clearChat(senderName);
+      ui.renderMessages([]);
       ui.chatInput.value = "";
     } catch {
       ui.addSystemMessage("清理聊天记录失败，请稍后再试。");
@@ -39923,6 +39956,7 @@ async function handleChatCommand(text, senderName) {
   if (command === "/clearactivity") {
     try {
       await room.clearPlaybackActivities(senderName);
+      ui.clearPlaybackActivities();
       ui.chatInput.value = "";
       ui.closeCommandSuggestions();
     } catch {

@@ -31,6 +31,9 @@ function playbackActivityText(activity = {}) {
   if (activity.kind === "replay") return `${name} 从头重播`;
   if (activity.kind === "seek") return `${name} 跳转到 ${playbackTimeLabel(activity.currentTime)}`;
   if (activity.kind === "rate") return `${name} 调整倍速为 ${Number(activity.playbackRate || 1)}x`;
+  if (activity.kind === "source") return `${name} 切换视频为 ${String(activity.fileName || "新视频")}`;
+  if (activity.kind === "join") return `${name} 进入房间`;
+  if (activity.kind === "leave") return `${name} 离开房间`;
   if (activity.kind === "fit") {
     const labels = { contain: "适应", "ratio-16-9": "16:9", "ratio-4-3": "4:3", fill: "拉伸铺满" };
     return `${name} 调整画面比例为 ${labels[activity.fitMode] || activity.fitMode}`;
@@ -517,9 +520,9 @@ export class UI {
       time: Number(activity.time || Date.now()),
       text: playbackActivityText(activity)
     };
-    this.state.playbackActivities.push(item);
+    this.state.playbackActivities.unshift(item);
     if (this.state.playbackActivities.length > 100) {
-      const removed = this.state.playbackActivities.splice(0, this.state.playbackActivities.length - 100);
+      const removed = this.state.playbackActivities.splice(100);
       removed.forEach((entry) => this.playbackActivityIds.delete(entry.id));
     }
     if (notify) {

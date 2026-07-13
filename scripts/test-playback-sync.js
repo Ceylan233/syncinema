@@ -412,6 +412,10 @@ otherActivityRoom.setActiveVideoMeta(
 );
 releaseRoomBarrier(activityRoom, "activity-host", "activity-host-client", "activity-video");
 releaseRoomBarrier(otherActivityRoom, "other-host", "other-host-client", "other-activity-video");
+assert.equal(activityRoom.playbackActivities()[0].kind, "source", "switching video must create a source activity");
+assert.equal(activityRoom.playbackActivities()[0].fileName, meta.name, "source activity must preserve the video name");
+activityRoom.clearPlaybackActivities({ clientId: "test", name: "Test" });
+otherActivityRoom.clearPlaybackActivities({ clientId: "test", name: "Test" });
 
 const activityActor = { id: "activity-guest", clientId: "activity-guest-client", name: "Activity Guest" };
 const activityState = (overrides = {}) => ({
@@ -444,6 +448,34 @@ assert.deepEqual(
 assert.equal(activityRoom.playbackActivities()[1].currentTime, 90, "seek history must preserve its target time");
 assert.equal(activityRoom.playbackActivities()[2].playbackRate, 1.5, "rate history must preserve the selected rate");
 assert.equal(activityRoom.playbackActivities()[3].fitMode, "ratio-4-3", "fit history must preserve the selected mode");
+
+const versionBeforeDuplicateRate = activityRoom.playbackSnapshot().version;
+const activitiesBeforeDuplicateRate = activityRoom.playbackActivities().length;
+activityRoom.applyPlayback(
+  activityState({ reason: "ratechange", currentTime: 5, playbackRate: 1.5 }),
+  activityActor
+);
+assert.equal(
+  activityRoom.playbackSnapshot().version,
+  versionBeforeDuplicateRate,
+  "a duplicate rate event must not create a new authoritative playback version"
+);
+assert.equal(
+  activityRoom.playbackActivities().length,
+  activitiesBeforeDuplicateRate,
+  "a duplicate rate event must not create an activity"
+);
+
+const timelineBeforeRateChange = activityRoom.playbackSnapshot().currentTime;
+const changedRateState = activityRoom.applyPlayback(
+  activityState({ reason: "ratechange", currentTime: 5, playbackRate: 2 }),
+  activityActor
+);
+assert.equal(changedRateState.playbackRate, 2, "a real rate change must update the shared rate");
+assert(
+  changedRateState.currentTime >= timelineBeforeRateChange - 0.05,
+  "a rate change must preserve the authoritative timeline instead of accepting the sender's stale time"
+);
 
 const historyCountBeforeChat = activityRoom.playbackActivities().length;
 activityRoom.postChat({ clientId: "activity-guest-client", name: "Activity Guest", text: "chat is not an activity" });
@@ -490,11 +522,12 @@ emptyRoom.applyPlayback(
   },
   { id: "gone-host", clientId: "gone-host-client", name: "Gone Host" }
 );
+const emptyRoomActivityCount = emptyRoom.playbackActivities().length;
 assert.equal(emptyRoom.resetEmptyRoomPlayback(), true, "an empty non-demo room must be resettable");
 assert.equal(emptyRoom.activeVideoSnapshot(), null, "empty-room cleanup must remove the active video");
 assert.equal(emptyRoom.playbackSnapshot().hasVideo, false, "empty-room cleanup must restore default playback state");
 assert.equal(emptyRoom.chatHistory().length, 1, "empty-room cleanup must preserve chat history");
-assert.equal(emptyRoom.playbackActivities().length, 1, "empty-room cleanup must preserve playback history");
+assert.equal(emptyRoom.playbackActivities().length, emptyRoomActivityCount, "empty-room cleanup must preserve playback history");
 
 const timedEmptyRoom = rooms.room("timed-empty-room-test");
 timedEmptyRoom.postChat({ clientId: "http-chat", name: "Keeper", text: "preserve timed chat" });
@@ -507,5 +540,37 @@ setTimeout(() => {
   assert.equal(timedEmptyRoom.playbackSnapshot().hasVideo, false, "the empty-room timer must reset playback");
   assert.equal(timedEmptyRoom.chatHistory().length, 1, "the empty-room timer must preserve chat history");
 }, 45);
+
+const presenceRoom = rooms.room("presence-test");
+const presenceSocket = {
+  id: "presence-socket",
+  data: {},
+  join() {},
+  leave() {},
+  emit() {},
+  to() { return { emit() {} }; }
+};
+io.sockets.sockets.set(presenceSocket.id, presenceSocket);
+presenceRoom.handleJoin(presenceSocket, { name: "Presence User", clientId: "presence-client" });
+assert.equal(presenceRoom.playbackActivities().length, 1, "first room entry must create one activity");
+assert.equal(presenceRoom.playbackActivities()[0].kind, "join", "room entry activity must use the join kind");
+
+const presenceRaceRoom = rooms.room("presence-http-race-test");
+presenceRaceRoom.touchPresence({ name: "Presence Race", clientId: "presence-race-client" });
+const presenceRaceSocket = {
+  id: "presence-race-socket",
+  data: {},
+  join() {},
+  leave() {},
+  emit() {},
+  to() { return { emit() {} }; }
+};
+io.sockets.sockets.set(presenceRaceSocket.id, presenceRaceSocket);
+presenceRaceRoom.handleJoin(presenceRaceSocket, { name: "Presence Race", clientId: "presence-race-client" });
+assert.equal(
+  presenceRaceRoom.playbackActivities()[0].kind,
+  "join",
+  "an HTTP presence heartbeat before socket join must still count as a first room entry"
+);
 
 console.log("Playback sync tests passed");

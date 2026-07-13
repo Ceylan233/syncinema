@@ -86,9 +86,7 @@ function loadChatStore() {
 }
 
 function saveChatStore(rooms) {
-  fs.writeFile(CHAT_HISTORY_FILE, JSON.stringify({ rooms }, null, 2), (error) => {
-    if (error) console.warn("Chat history save failed", error);
-  });
+  saveStoreAtomically(CHAT_HISTORY_FILE, { rooms }, "Chat history");
 }
 
 function sanitizeMessages(messages) {
@@ -115,9 +113,18 @@ function loadPlaybackActivityStore() {
 }
 
 function savePlaybackActivityStore(rooms) {
-  fs.writeFile(PLAYBACK_ACTIVITY_FILE, JSON.stringify({ rooms }, null, 2), (error) => {
-    if (error) console.warn("Playback activity save failed", error);
-  });
+  saveStoreAtomically(PLAYBACK_ACTIVITY_FILE, { rooms }, "Playback activity");
+}
+
+function saveStoreAtomically(file, value, label) {
+  const temporary = `${file}.tmp`;
+  try {
+    fs.writeFileSync(temporary, JSON.stringify(value, null, 2));
+    fs.renameSync(temporary, file);
+  } catch (error) {
+    console.warn(`${label} save failed`, error);
+    try { fs.rmSync(temporary, { force: true }); } catch {}
+  }
 }
 
 function sanitizePlaybackActivities(items) {
@@ -130,7 +137,8 @@ function sanitizePlaybackActivities(items) {
     time: Number.isFinite(item?.time) ? item.time : Date.now(),
     currentTime: Math.max(0, Number(item?.currentTime || 0)),
     playbackRate: Math.max(0.25, Math.min(4, Number(item?.playbackRate || 1))),
-    fitMode: String(item?.fitMode || "contain").slice(0, 24)
+    fitMode: String(item?.fitMode || "contain").slice(0, 24),
+    fileName: String(item?.fileName || "").slice(0, 200)
   })).filter((item) => item.kind);
 }
 
@@ -296,7 +304,8 @@ module.exports = function attachSocketHandlers(io, options = {}) {
         speaking: existing?.speaking || false,
         watchState: existing?.watchState || null,
         connectedAt: existing?.connectedAt || now,
-        lastSeenAt: now
+        lastSeenAt: now,
+        presenceOnly: existing ? Boolean(existing.presenceOnly) : true
       });
       for (const id of ids.slice(1)) users.delete(id);
       scheduleEmptyRoomCleanup();
@@ -347,7 +356,9 @@ module.exports = function attachSocketHandlers(io, options = {}) {
       chatMessagesById.clear();
       recentChatBySender.clear();
       chatStore[roomId] = chatHistory;
-      scheduleChatSave();
+      if (chatSaveTimer) clearTimeout(chatSaveTimer);
+      chatSaveTimer = null;
+      if (persistStores) saveChatStore(chatStore);
       const event = { by: cleanClientId, name: normalizeName(name || "User"), time: Date.now() };
       emit("chat-cleared", event);
       return { ok: true, event };
@@ -356,7 +367,9 @@ module.exports = function attachSocketHandlers(io, options = {}) {
     const clearPlaybackActivities = ({ clientId, name } = {}) => {
       playbackActivities.splice(0, playbackActivities.length);
       playbackActivityStore[roomId] = playbackActivities;
-      schedulePlaybackActivitySave();
+      if (playbackActivitySaveTimer) clearTimeout(playbackActivitySaveTimer);
+      playbackActivitySaveTimer = null;
+      if (persistStores) savePlaybackActivityStore(playbackActivityStore);
       const event = {
         by: String(clientId || "").slice(0, 80),
         name: normalizeName(name || "User"),
@@ -504,6 +517,9 @@ module.exports = function attachSocketHandlers(io, options = {}) {
       if (["seek-release", "skip"].includes(reason)) return "seek";
       if (reason === "ratechange") return "rate";
       if (reason === "fitchange") return "fit";
+      if (reason === "video-meta") return "source";
+      if (reason === "user-join") return "join";
+      if (reason === "user-leave") return "leave";
       return "";
     };
 
@@ -524,7 +540,8 @@ module.exports = function attachSocketHandlers(io, options = {}) {
         time: now,
         currentTime: Math.max(0, Number(playback.currentTime || 0)),
         playbackRate: Number(playback.playbackRate || 1),
-        fitMode: String(playback.fitMode || "contain")
+        fitMode: String(playback.fitMode || "contain"),
+        fileName: String(playback.fileName || "").slice(0, 200)
       };
       playbackActivities.push(activity);
       if (playbackActivities.length > PLAYBACK_ACTIVITY_LIMIT) {
@@ -643,6 +660,21 @@ module.exports = function attachSocketHandlers(io, options = {}) {
           }
         }
       }
+      if (reason === "ratechange" && Number.isFinite(Number(state.playbackRate))) {
+        const allowedRates = [0.5, 0.75, 1, 1.25, 1.5, 2];
+        const incomingRate = allowedRates.reduce(
+          (best, rate) => Math.abs(rate - Number(state.playbackRate)) < Math.abs(best - Number(state.playbackRate)) ? rate : best,
+          1
+        );
+        if (incomingRate === playback.playbackRate) return playbackSnapshot();
+      }
+      if (
+        reason === "fitchange" &&
+        typeof state.fitMode === "string" &&
+        state.fitMode === playback.fitMode
+      ) {
+        return playbackSnapshot();
+      }
       if (!isHeartbeat && state.actionId && rememberPlaybackAction(String(state.actionId).slice(0, 120))) {
         return playbackSnapshot();
       }
@@ -672,6 +704,9 @@ module.exports = function attachSocketHandlers(io, options = {}) {
         : Number.isFinite(state.currentTime)
           ? Math.max(0, state.currentTime)
           : playback.currentTime;
+      if (["ratechange", "fitchange"].includes(reason)) {
+        incomingTime = previous.currentTime;
+      }
       if (
         scheduledIntent &&
         ["pause-click", "remote-pause-click"].includes(reason) &&
@@ -1076,6 +1111,11 @@ module.exports = function attachSocketHandlers(io, options = {}) {
       playback.executeAt = 0;
       playback.by = { id: actor.id || ownerId || "video", clientId: ownerClientId, name: ownerName };
       recentPlaybackActions.clear();
+      recordPlaybackActivity(
+        { userIntent: true, actionId: `video-${activeVideoMeta.switchId}` },
+        "video-meta",
+        playback.by
+      );
       beginStartupBarrier(activeVideoMeta.id);
       if (!connectedRoomUsers().length && !dedupeUserEntries().length) scheduleEmptyRoomCleanup();
       emit("video-meta", activeVideoMeta);
@@ -1134,6 +1174,13 @@ module.exports = function attachSocketHandlers(io, options = {}) {
       users.set(socket.id, user);
       socket.data.user = user;
       socketsByClientId.set(cleanClientId, socket.id);
+      if (!oldUser || oldUser.presenceOnly) {
+        recordPlaybackActivity(
+          { userIntent: true, actionId: `presence-join-${cleanClientId}-${Date.now()}` },
+          "user-join",
+          { id: socket.id, clientId: cleanClientId, name: displayName }
+        );
+      }
       if (activeVideoMeta?.ownerClientId === cleanClientId && !isLockedRoom()) {
         activeVideoMeta.ownerId = socket.id;
         activeVideoMeta.sourceOnline = true;
@@ -1188,7 +1235,14 @@ module.exports = function attachSocketHandlers(io, options = {}) {
           activeVideoMeta.sourceOnline = false;
           emit("source-offline", activeVideoMeta);
         }
-        if (!replacementSession) emit("user-left", { id: socket.id, name: user.name, reason });
+        if (!replacementSession) {
+          recordPlaybackActivity(
+            { userIntent: true, actionId: `presence-leave-${user.clientId}-${Date.now()}` },
+            "user-leave",
+            { id: socket.id, clientId: user.clientId, name: user.name }
+          );
+          emit("user-left", { id: socket.id, name: user.name, reason });
+        }
         broadcastUsers();
         if (!connectedRoomUsers().length && !dedupeUserEntries().length) scheduleEmptyRoomCleanup();
       };

@@ -1103,6 +1103,7 @@ async function handleChatCommand(text, senderName) {
   if (["/clear", "/清理聊天记录", "/清屏", "/清理"].includes(command)) {
     try {
       await room.clearChat(senderName);
+      ui.renderMessages([]);
       ui.chatInput.value = "";
     } catch {
       ui.addSystemMessage("清理聊天记录失败，请稍后再试。");
@@ -1113,6 +1114,7 @@ async function handleChatCommand(text, senderName) {
   if (command === "/clearactivity") {
     try {
       await room.clearPlaybackActivities(senderName);
+      ui.clearPlaybackActivities();
       ui.chatInput.value = "";
       ui.closeCommandSuggestions();
     } catch {

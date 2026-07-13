@@ -95,6 +95,10 @@ export class CinemaPlayer extends EventTarget {
       : null;
     if (this.ui.videoSurface) this.fitResizeObserver?.observe(this.ui.videoSurface);
     this.rateCorrectionTimer = null;
+    this.programmaticRateValue = 1;
+    this.programmaticRateUntil = 0;
+    this.programmaticSeekTarget = null;
+    this.programmaticSeekUntil = 0;
     this.remoteApplyGeneration = 0;
     this.independentMobilePlayer = usesIndependentMobilePlayer();
     this.nativePlayerActive = false;
@@ -277,9 +281,12 @@ export class CinemaPlayer extends EventTarget {
             this.retryRemoteAutoplay("unexpected-pause");
           }
         }
-        if (!this.applyingRemote && this.isIndependentPlayerInteraction(eventName)) {
+        const programmaticMediaEvent =
+          (eventName === "ratechange" && this.isProgrammaticRateChange()) ||
+          (["seeking", "seeked"].includes(eventName) && this.isProgrammaticSeekEvent(eventName));
+        if (!programmaticMediaEvent && !this.applyingRemote && this.isIndependentPlayerInteraction(eventName)) {
           this.syncIndependentPlayerEvent(eventName);
-        } else if (!this.applyingRemote && this.shouldSyncUserEvent(eventName)) {
+        } else if (!programmaticMediaEvent && !this.applyingRemote && this.shouldSyncUserEvent(eventName)) {
           this.emitSync(eventName, { userIntent: this.hasLocalSource() });
         }
       });
@@ -304,7 +311,7 @@ export class CinemaPlayer extends EventTarget {
       this.updateNaturalAspect();
       this.updateLocalQualityLabel();
       if (Number.isFinite(this.restoreAfterMetadata)) {
-        this.video.currentTime = Math.min(this.restoreAfterMetadata, this.video.duration || this.restoreAfterMetadata);
+        this.setProgrammaticCurrentTime(Math.min(this.restoreAfterMetadata, this.video.duration || this.restoreAfterMetadata));
         this.restoreAfterMetadata = null;
       }
       this.updateControls();
@@ -512,7 +519,7 @@ export class CinemaPlayer extends EventTarget {
     if (options.resetPlayback) {
       this.video.pause();
       this.restoreAfterMetadata = 0;
-      this.video.currentTime = 0;
+      this.setProgrammaticCurrentTime(0);
       this.ui.seekBar.value = 0;
       this.ui.currentTime.textContent = formatTime(0);
     }
@@ -822,7 +829,7 @@ export class CinemaPlayer extends EventTarget {
     const onManifest = () => {
       this.hls?.off(window.Hls.Events.MANIFEST_PARSED, onManifest);
       if (!this.hls || token !== this.onlineSourceToken) return;
-      if (Number.isFinite(restoreTime)) this.video.currentTime = restoreTime;
+      if (Number.isFinite(restoreTime)) this.setProgrammaticCurrentTime(restoreTime);
       if (resume) this.playRemoteWithFallback().catch(() => {});
     };
     this.hls.on(window.Hls.Events.MANIFEST_PARSED, onManifest);
@@ -880,7 +887,7 @@ export class CinemaPlayer extends EventTarget {
     this.video.src = this.vodLineOptions[nextIndex];
     this.video.load();
     this.video.addEventListener("loadedmetadata", () => {
-      this.video.currentTime = Math.min(restoreTime, this.video.duration || restoreTime);
+      this.setProgrammaticCurrentTime(Math.min(restoreTime, this.video.duration || restoreTime));
       if (resume) this.playRemoteWithFallback().catch(() => {});
     }, { once: true });
     this.ui.setTransfer?.(`点播切换线路 ${nextIndex + 1}`, 100);
@@ -1205,7 +1212,7 @@ export class CinemaPlayer extends EventTarget {
     this.video.addEventListener("loadedmetadata", () => {
       if (token !== this.onlineSourceToken) return;
       if (Number.isFinite(restoreTime)) {
-        this.video.currentTime = Math.min(restoreTime, this.video.duration || restoreTime);
+        this.setProgrammaticCurrentTime(Math.min(restoreTime, this.video.duration || restoreTime));
       }
       if (resume) this.playRemoteWithFallback().catch(() => {});
       window.setTimeout(() => {
@@ -1268,7 +1275,7 @@ export class CinemaPlayer extends EventTarget {
     if (lag <= 0) return;
     if (!force && lag <= 12) return;
     try {
-      this.video.currentTime = edge;
+      this.setProgrammaticCurrentTime(edge);
     } catch {
       // The live seekable window can change between reading and assigning it.
     }
@@ -1344,6 +1351,32 @@ export class CinemaPlayer extends EventTarget {
     this.userSyncUntil = Math.max(Number(this.userSyncUntil || 0), Date.now() + duration);
   }
 
+  setProgrammaticPlaybackRate(value) {
+    const rate = Math.max(0.25, Math.min(4, Number(value) || 1));
+    this.programmaticRateValue = rate;
+    this.programmaticRateUntil = Date.now() + 1000;
+    this.video.playbackRate = rate;
+  }
+
+  isProgrammaticRateChange() {
+    return Date.now() < this.programmaticRateUntil &&
+      Math.abs(Number(this.video.playbackRate || 1) - this.programmaticRateValue) < 0.001;
+  }
+
+  setProgrammaticCurrentTime(value, duration = 8000) {
+    const target = Math.max(0, Number(value) || 0);
+    this.programmaticSeekTarget = target;
+    this.programmaticSeekUntil = Date.now() + duration;
+    this.video.currentTime = target;
+  }
+
+  isProgrammaticSeekEvent(eventName) {
+    if (Date.now() >= this.programmaticSeekUntil || !Number.isFinite(this.programmaticSeekTarget)) return false;
+    if (Math.abs(Number(this.video.currentTime || 0) - this.programmaticSeekTarget) > 3) return false;
+    if (eventName === "seeked") this.programmaticSeekUntil = Date.now() + 250;
+    return true;
+  }
+
   isIndependentPlayerInteraction(eventName) {
     const nativeFullscreen = this.nativePlayerActive || Boolean(this.video.webkitDisplayingFullscreen);
     if (nativeFullscreen) return ["play", "pause", "seeking", "seeked", "ratechange"].includes(eventName);
@@ -1370,6 +1403,9 @@ export class CinemaPlayer extends EventTarget {
       return;
     }
     if (eventName === "ratechange") {
+      const selectedRate = normalizeControlRate(this.video.playbackRate);
+      this.ui.rateSelect.value = String(selectedRate);
+      this.markUserSync();
       this.emitSync("ratechange", { userIntent: true });
     }
   }
@@ -1389,7 +1425,7 @@ export class CinemaPlayer extends EventTarget {
     const targetTime = this.remoteTargetTime({ ...state, paused: true });
     if (!Number.isFinite(targetTime) || !this.isBuffered(targetTime)) return;
     try {
-      this.video.currentTime = targetTime;
+      this.setProgrammaticCurrentTime(targetTime);
     } catch {
       // The scheduled execution will retry once the media element is ready.
     }
@@ -1454,14 +1490,14 @@ export class CinemaPlayer extends EventTarget {
         if (canCorrectRate) {
           const localTime = this.video.currentTime || 0;
           const correction = drift < 0.75 ? Math.min(0.06, 0.03 + drift * 0.04) : Math.min(0.12, 0.08 + drift * 0.016);
-          this.video.playbackRate = localTime < targetTime
+          this.setProgrammaticPlaybackRate(localTime < targetTime
             ? Math.min(4, baseRate * (1 + correction))
-            : Math.max(0.25, baseRate * (1 - correction));
+            : Math.max(0.25, baseRate * (1 - correction)));
           this.rateCorrectionTimer = window.setTimeout(() => {
-            this.video.playbackRate = baseRate;
+            this.setProgrammaticPlaybackRate(baseRate);
           }, drift < 0.75 ? 900 : 1400);
         } else {
-          this.video.playbackRate = baseRate;
+          this.setProgrammaticPlaybackRate(baseRate);
         }
         this.ui.rateSelect.value = String(baseRate);
       }
@@ -1476,7 +1512,7 @@ export class CinemaPlayer extends EventTarget {
         if (this.video.readyState < HTMLMediaElement.HAVE_METADATA) {
           this.restoreAfterMetadata = targetTime;
         } else {
-          this.video.currentTime = targetTime;
+          this.setProgrammaticCurrentTime(targetTime);
           if (!state.paused && this.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
             await this.waitForPlayableNear(targetTime, 1800);
             if (applyGeneration !== this.remoteApplyGeneration) return;
@@ -1595,7 +1631,7 @@ export class CinemaPlayer extends EventTarget {
         const start = this.video.buffered.start(index);
         const end = this.video.buffered.end(index);
         const stableStart = Math.max(start, end - targetSeconds);
-        if (Math.abs(this.video.currentTime - stableStart) > 0.25) this.video.currentTime = stableStart;
+        if (Math.abs(this.video.currentTime - stableStart) > 0.25) this.setProgrammaticCurrentTime(stableStart);
       }
       this.liveStartupReady = true;
       if (this.userVolume > 0 && this.canUnmuteAudibly()) {
