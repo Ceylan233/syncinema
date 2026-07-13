@@ -3821,7 +3821,7 @@ body {
 
 .activity-history-item {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 142px minmax(0, 1fr);
   gap: 12px;
   padding: 11px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
@@ -4140,7 +4140,8 @@ body {
   }
 
   .activity-history-item {
-    grid-template-columns: 68px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
     padding: 11px 14px;
   }
 }

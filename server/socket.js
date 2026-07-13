@@ -174,6 +174,14 @@ module.exports = function attachSocketHandlers(io, options = {}) {
   const sensitiveFilter = options.sensitiveFilter || null;
   const chatStore = persistStores ? loadChatStore() : {};
   const playbackActivityStore = persistStores ? loadPlaybackActivityStore() : {};
+  if (persistStores && Array.isArray(playbackActivityStore[DEMO_ROOM_ID])) {
+    const previousLength = playbackActivityStore[DEMO_ROOM_ID].length;
+    playbackActivityStore[DEMO_ROOM_ID] = playbackActivityStore[DEMO_ROOM_ID]
+      .filter((item) => !["join", "leave"].includes(String(item?.kind || "")));
+    if (playbackActivityStore[DEMO_ROOM_ID].length !== previousLength) {
+      savePlaybackActivityStore(playbackActivityStore);
+    }
+  }
   let chatSaveTimer = null;
   let playbackActivitySaveTimer = null;
   const relayStoredHandlers = new Set();
