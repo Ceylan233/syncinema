@@ -4337,6 +4337,7 @@ var VoiceManager = class extends EventTarget {
     this.outputVolume = this.loadOutputVolume();
     this.lastVoiceAt = 0;
     this.lastSignalAt = 0;
+    this.lastSpeechDetectedAt = 0;
     this.playUnlockInstalled = false;
     this.audioUnlocked = false;
     this.lastAudioUnlockNoticeAt = 0;
@@ -5035,8 +5036,9 @@ var VoiceManager = class extends EventTarget {
       }
       const rms = Math.sqrt(sum / samples.length);
       this.updateNoiseGate(rms);
-      const isSpeaking = this.enabled && rms > this.speakingThreshold();
       const now = Date.now();
+      if (this.enabled && rms > this.speakingThreshold()) this.lastSpeechDetectedAt = now;
+      const isSpeaking = this.enabled && now - this.lastSpeechDetectedAt < 750;
       if (isSpeaking !== this.speaking && now - this.lastSignalAt > 250) {
         this.speaking = isSpeaking;
         this.lastSignalAt = now;
@@ -5071,6 +5073,7 @@ var VoiceManager = class extends EventTarget {
       if (this.enabled && rms > 45e-4) this.lastVoiceAt = now;
       return;
     }
+    this.lastSpeechDetectedAt = 0;
     if (rms < 0.01) {
       this.noiseFloor = this.noiseFloor * 0.99 + rms * 0.01;
     }
