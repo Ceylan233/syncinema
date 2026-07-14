@@ -80,6 +80,9 @@ export class UI {
       micEnabled: false,
       micBusy: false,
       micText: "",
+      micDevices: [],
+      micDeviceId: localStorage.getItem("pc:microphone-device") || "",
+      micDefaultLabel: "系统默认",
       noiseEnabled: false,
       noiseBusy: false,
       emptyVisible: true,
@@ -198,6 +201,7 @@ export class UI {
       "connectionBadge",
       "voiceBadge",
       "micToggleButton",
+      "micDeviceSelect",
       "noiseToggleButton",
       "micVolume",
       "memberCount",
@@ -360,6 +364,13 @@ export class UI {
   setNoiseControl({ enabled, busy = false } = {}) {
     this.state.noiseEnabled = Boolean(enabled);
     this.state.noiseBusy = busy;
+  }
+
+  setMicrophoneDevices(devices = [], selectedDeviceId = "", activeDeviceId = "") {
+    this.state.micDevices = Array.isArray(devices) ? devices : [];
+    this.state.micDeviceId = String(selectedDeviceId || "");
+    const active = this.state.micDevices.find((device) => device.deviceId === activeDeviceId);
+    this.state.micDefaultLabel = active?.label ? `默认：${active.label}` : "系统默认";
   }
 
   openSourceModal() {

@@ -4440,8 +4440,15 @@ var VoiceManager = class extends EventTarget {
     this.captureHealthTimer = null;
     this.inputVolume = this.loadInputVolume();
     this.noiseReductionEnabled = this.loadNoiseReduction();
+    this.selectedInputDeviceId = localStorage.getItem("pc:microphone-device") || "";
+    this.inputDevices = [];
     this.ui.setNoiseControl?.({ enabled: this.noiseReductionEnabled });
+    this.ui.setMicrophoneDevices?.([], this.selectedInputDeviceId);
     this.installPlaybackUnlock();
+    navigator.mediaDevices?.addEventListener?.("devicechange", () => {
+      this.refreshInputDevices().catch(() => {
+      });
+    });
   }
   async start() {
     if (this.stream) {
@@ -4465,6 +4472,7 @@ var VoiceManager = class extends EventTarget {
       await this.resumeCaptureContext();
       await this.applyVoiceEnhancements();
       this.reportVoiceEnhancements();
+      await this.refreshInputDevices();
       this.enableTracks();
       this.watchSpeaking();
       this.startSocketRelay();
@@ -4476,11 +4484,15 @@ var VoiceManager = class extends EventTarget {
       throw error;
     }
   }
-  buildAudioConstraints() {
-    if (!this.noiseReductionEnabled) return true;
+  buildAudioConstraints({ includeDevice = true } = {}) {
+    const selectedDeviceId = includeDevice ? this.selectedInputDeviceId : "";
+    if (!this.noiseReductionEnabled) {
+      return selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true;
+    }
     const supported2 = navigator.mediaDevices.getSupportedConstraints?.() || {};
     const audio = {};
     const useSoftwareDenoiser = this.noiseReductionEnabled && this.useRnnoiseEngine?.() && this.rnnoiseStatus !== "failed";
+    if (selectedDeviceId) audio.deviceId = { exact: selectedDeviceId };
     if (supported2.echoCancellation) audio.echoCancellation = true;
     if (supported2.noiseSuppression) audio.noiseSuppression = this.noiseReductionEnabled && !useSoftwareDenoiser;
     if (supported2.autoGainControl) audio.autoGainControl = this.noiseReductionEnabled && !useSoftwareDenoiser;
@@ -4492,6 +4504,7 @@ var VoiceManager = class extends EventTarget {
   }
   async applyVoiceEnhancements() {
     if (this.syntheticCapture) return;
+    if (!this.noiseReductionEnabled) return;
     const [track2] = this.inputStream?.getAudioTracks() || [];
     if (!track2?.applyConstraints) return;
     const constraints = this.buildAudioConstraints();
@@ -4522,6 +4535,32 @@ var VoiceManager = class extends EventTarget {
   async toggleNoiseReduction() {
     await this.setNoiseReduction(!this.noiseReductionEnabled);
     return this.stream;
+  }
+  async refreshInputDevices() {
+    if (!navigator.mediaDevices?.enumerateDevices) return [];
+    const devices = (await navigator.mediaDevices.enumerateDevices()).filter((device) => device.kind === "audioinput").map((device, index) => ({
+      deviceId: device.deviceId,
+      label: device.label || `麦克风 ${index + 1}`
+    }));
+    if (this.selectedInputDeviceId && !devices.some((device) => device.deviceId === this.selectedInputDeviceId)) {
+      this.selectedInputDeviceId = "";
+      localStorage.removeItem("pc:microphone-device");
+    }
+    this.inputDevices = devices;
+    const activeDeviceId = this.inputStream?.getAudioTracks?.()[0]?.getSettings?.().deviceId || "";
+    this.ui.setMicrophoneDevices?.(devices, this.selectedInputDeviceId, activeDeviceId);
+    return devices;
+  }
+  async setInputDevice(deviceId) {
+    this.selectedInputDeviceId = String(deviceId || "");
+    if (this.selectedInputDeviceId) {
+      localStorage.setItem("pc:microphone-device", this.selectedInputDeviceId);
+    } else {
+      localStorage.removeItem("pc:microphone-device");
+    }
+    this.ui.setMicrophoneDevices?.(this.inputDevices, this.selectedInputDeviceId);
+    if (!this.inputStream || this.syntheticCapture) return this.stream;
+    return this.restartCapture();
   }
   reportVoiceEnhancements() {
     const [track2] = this.inputStream?.getAudioTracks() || [];
@@ -4586,10 +4625,23 @@ var VoiceManager = class extends EventTarget {
       this.syntheticCapture = { source, gain, destination, mode: testMode };
       return destination.stream;
     }
-    return navigator.mediaDevices.getUserMedia({
-      audio: this.buildAudioConstraints(),
-      video: false
-    });
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: this.buildAudioConstraints(),
+        video: false
+      });
+    } catch (error) {
+      if (!this.selectedInputDeviceId || !["NotFoundError", "OverconstrainedError"].includes(error?.name)) {
+        throw error;
+      }
+      this.selectedInputDeviceId = "";
+      localStorage.removeItem("pc:microphone-device");
+      this.ui.addSystemMessage("所选麦克风不可用，已切回系统默认设备。");
+      return navigator.mediaDevices.getUserMedia({
+        audio: this.buildAudioConstraints({ includeDevice: false }),
+        video: false
+      });
+    }
   }
   disable() {
     this.enabled = false;
@@ -4629,6 +4681,7 @@ var VoiceManager = class extends EventTarget {
     await this.resumeCaptureContext();
     await this.applyVoiceEnhancements();
     this.reportVoiceEnhancements();
+    await this.refreshInputDevices();
     this.watchSpeaking();
     if (wasEnabled) {
       this.enableTracks();
@@ -4948,7 +5001,10 @@ var VoiceManager = class extends EventTarget {
     return destination.stream;
   }
   webRtcStream(inputStream) {
-    return this.processedStream || inputStream;
+    if (this.noiseReductionEnabled && this.rnnoiseProcessor && this.processedStream) {
+      return this.processedStream;
+    }
+    return inputStream;
   }
   async prepareRnnoiseProcessor() {
     this.rnnoiseNode = null;
@@ -5430,6 +5486,7 @@ var VoiceManager = class extends EventTarget {
   diagnostics() {
     const inputTrack = this.inputStream?.getAudioTracks?.()[0] || null;
     const webRtcTrack = this.stream?.getAudioTracks?.()[0] || null;
+    const inputSettings = inputTrack?.getSettings?.() || {};
     const p2p = {};
     for (const [peerId, meter] of this.remoteP2PMeters) {
       p2p[peerId] = {
@@ -5457,7 +5514,14 @@ var VoiceManager = class extends EventTarget {
         id: inputTrack.id,
         enabled: inputTrack.enabled,
         muted: inputTrack.muted,
-        readyState: inputTrack.readyState
+        readyState: inputTrack.readyState,
+        deviceId: inputSettings.deviceId || "",
+        sampleRate: inputSettings.sampleRate || null,
+        channelCount: inputSettings.channelCount || null,
+        echoCancellation: inputSettings.echoCancellation ?? null,
+        noiseSuppression: inputSettings.noiseSuppression ?? null,
+        autoGainControl: inputSettings.autoGainControl ?? null,
+        voiceIsolation: inputSettings.voiceIsolation ?? null
       },
       webRtcTrack: webRtcTrack && {
         id: webRtcTrack.id,
@@ -19085,6 +19149,19 @@ var TopBar = {
           >
             {{ state.noiseEnabled ? '降噪开' : '降噪关' }}
           </button>
+          <select
+            id="micDeviceSelect"
+            class="mic-device-select"
+            :value="state.micDeviceId"
+            :disabled="state.micBusy"
+            title="选择麦克风输入设备"
+            aria-label="麦克风设备"
+          >
+            <option value="">{{ state.micDefaultLabel }}</option>
+            <option v-for="device in state.micDevices" :key="device.deviceId" :value="device.deviceId">
+              {{ device.label }}
+            </option>
+          </select>
           <label class="top-volume-control" title="麦克风发送音量">
             <span>输入</span>
             <input id="micVolume" type="range" min="25" max="200" value="100" />
@@ -38324,6 +38401,9 @@ var UI = class {
       micEnabled: false,
       micBusy: false,
       micText: "",
+      micDevices: [],
+      micDeviceId: localStorage.getItem("pc:microphone-device") || "",
+      micDefaultLabel: "系统默认",
       noiseEnabled: false,
       noiseBusy: false,
       emptyVisible: true,
@@ -38438,6 +38518,7 @@ var UI = class {
       "connectionBadge",
       "voiceBadge",
       "micToggleButton",
+      "micDeviceSelect",
       "noiseToggleButton",
       "micVolume",
       "memberCount",
@@ -38589,6 +38670,12 @@ var UI = class {
   setNoiseControl({ enabled, busy = false } = {}) {
     this.state.noiseEnabled = Boolean(enabled);
     this.state.noiseBusy = busy;
+  }
+  setMicrophoneDevices(devices = [], selectedDeviceId = "", activeDeviceId = "") {
+    this.state.micDevices = Array.isArray(devices) ? devices : [];
+    this.state.micDeviceId = String(selectedDeviceId || "");
+    const active = this.state.micDevices.find((device) => device.deviceId === activeDeviceId);
+    this.state.micDefaultLabel = active?.label ? `默认：${active.label}` : "系统默认";
   }
   openSourceModal() {
     this.state.source.visible = true;
@@ -39448,6 +39535,8 @@ async function boot() {
   wireSocket();
   wireWebRTC();
   wireUI();
+  voice.refreshInputDevices().catch(() => {
+  });
   sync.start();
   window.setInterval(() => announceLocalSource({ broadcast: false }), 2e3);
   window.setInterval(() => pollAuthoritativeVideo(), 800);
@@ -40280,6 +40369,20 @@ function wireUI() {
       await mesh.setLocalStream(voice.enabled ? stream : null);
       await voice.unlockPlayback();
     } catch {
+    } finally {
+      ui.setMicControl({ enabled: voice.enabled });
+      updateVoiceConnectionStatus();
+    }
+  });
+  ui.micDeviceSelect?.addEventListener("change", async (event) => {
+    ui.setMicControl({ enabled: voice.enabled, busy: true, text: "切换中" });
+    try {
+      const stream = await voice.setInputDevice(event.target.value);
+      await mesh.setLocalStream(voice.enabled ? stream : null);
+    } catch {
+      ui.addSystemMessage("麦克风切换失败，请确认设备没有被其他程序独占。");
+      await voice.refreshInputDevices().catch(() => {
+      });
     } finally {
       ui.setMicControl({ enabled: voice.enabled });
       updateVoiceConnectionStatus();

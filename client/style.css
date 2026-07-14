@@ -163,6 +163,19 @@ button.status-badge {
   accent-color: var(--accent-2);
 }
 
+.mic-device-select {
+  width: min(180px, 22vw);
+  min-width: 120px;
+  height: 30px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+}
+
 .status-ok {
   color: #8fffdc;
   border-color: rgba(45, 212, 191, 0.38);
@@ -2752,6 +2765,29 @@ body {
     display: grid;
     grid-template-columns: minmax(72px, 0.8fr) minmax(70px, 0.76fr) minmax(0, 1.6fr);
     gap: 6px;
+  }
+
+  #micToggleButton {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  #noiseToggleButton {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .voice-control-cluster .top-volume-control {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .mic-device-select {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+    height: 26px;
   }
 
   #voiceBadge {

@@ -61,8 +61,14 @@
     this.captureHealthTimer = null;
     this.inputVolume = this.loadInputVolume();
     this.noiseReductionEnabled = this.loadNoiseReduction();
+    this.selectedInputDeviceId = localStorage.getItem("pc:microphone-device") || "";
+    this.inputDevices = [];
     this.ui.setNoiseControl?.({ enabled: this.noiseReductionEnabled });
+    this.ui.setMicrophoneDevices?.([], this.selectedInputDeviceId);
     this.installPlaybackUnlock();
+    navigator.mediaDevices?.addEventListener?.("devicechange", () => {
+      this.refreshInputDevices().catch(() => {});
+    });
   }
 
   async start() {
@@ -91,6 +97,7 @@
       await this.resumeCaptureContext();
       await this.applyVoiceEnhancements();
       this.reportVoiceEnhancements();
+      await this.refreshInputDevices();
       this.enableTracks();
       this.watchSpeaking();
       this.startSocketRelay();
@@ -103,16 +110,20 @@
     }
   }
 
-  buildAudioConstraints() {
+  buildAudioConstraints({ includeDevice = true } = {}) {
+    const selectedDeviceId = includeDevice ? this.selectedInputDeviceId : "";
     // Keep the plain path equivalent to getUserMedia({ audio: true }). On
     // Windows, requesting raw-processing constraints can bypass Equalizer APO.
-    if (!this.noiseReductionEnabled) return true;
+    if (!this.noiseReductionEnabled) {
+      return selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true;
+    }
 
     const supported = navigator.mediaDevices.getSupportedConstraints?.() || {};
     const audio = {};
     const useSoftwareDenoiser =
       this.noiseReductionEnabled && this.useRnnoiseEngine?.() && this.rnnoiseStatus !== "failed";
 
+    if (selectedDeviceId) audio.deviceId = { exact: selectedDeviceId };
     if (supported.echoCancellation) audio.echoCancellation = true;
     if (supported.noiseSuppression) audio.noiseSuppression = this.noiseReductionEnabled && !useSoftwareDenoiser;
     if (supported.autoGainControl) audio.autoGainControl = this.noiseReductionEnabled && !useSoftwareDenoiser;
@@ -126,6 +137,7 @@
 
   async applyVoiceEnhancements() {
     if (this.syntheticCapture) return;
+    if (!this.noiseReductionEnabled) return;
     const [track] = this.inputStream?.getAudioTracks() || [];
     if (!track?.applyConstraints) return;
 
@@ -162,6 +174,38 @@
   async toggleNoiseReduction() {
     await this.setNoiseReduction(!this.noiseReductionEnabled);
     return this.stream;
+  }
+
+  async refreshInputDevices() {
+    if (!navigator.mediaDevices?.enumerateDevices) return [];
+    const devices = (await navigator.mediaDevices.enumerateDevices())
+      .filter((device) => device.kind === "audioinput")
+      .map((device, index) => ({
+        deviceId: device.deviceId,
+        label: device.label || `麦克风 ${index + 1}`
+      }));
+
+    if (this.selectedInputDeviceId && !devices.some((device) => device.deviceId === this.selectedInputDeviceId)) {
+      this.selectedInputDeviceId = "";
+      localStorage.removeItem("pc:microphone-device");
+    }
+
+    this.inputDevices = devices;
+    const activeDeviceId = this.inputStream?.getAudioTracks?.()[0]?.getSettings?.().deviceId || "";
+    this.ui.setMicrophoneDevices?.(devices, this.selectedInputDeviceId, activeDeviceId);
+    return devices;
+  }
+
+  async setInputDevice(deviceId) {
+    this.selectedInputDeviceId = String(deviceId || "");
+    if (this.selectedInputDeviceId) {
+      localStorage.setItem("pc:microphone-device", this.selectedInputDeviceId);
+    } else {
+      localStorage.removeItem("pc:microphone-device");
+    }
+    this.ui.setMicrophoneDevices?.(this.inputDevices, this.selectedInputDeviceId);
+    if (!this.inputStream || this.syntheticCapture) return this.stream;
+    return this.restartCapture();
   }
 
   reportVoiceEnhancements() {
@@ -235,10 +279,23 @@
       this.syntheticCapture = { source, gain, destination, mode: testMode };
       return destination.stream;
     }
-    return navigator.mediaDevices.getUserMedia({
-      audio: this.buildAudioConstraints(),
-      video: false
-    });
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: this.buildAudioConstraints(),
+        video: false
+      });
+    } catch (error) {
+      if (!this.selectedInputDeviceId || !["NotFoundError", "OverconstrainedError"].includes(error?.name)) {
+        throw error;
+      }
+      this.selectedInputDeviceId = "";
+      localStorage.removeItem("pc:microphone-device");
+      this.ui.addSystemMessage("所选麦克风不可用，已切回系统默认设备。");
+      return navigator.mediaDevices.getUserMedia({
+        audio: this.buildAudioConstraints({ includeDevice: false }),
+        video: false
+      });
+    }
   }
 
   disable() {
@@ -282,6 +339,7 @@
     await this.resumeCaptureContext();
     await this.applyVoiceEnhancements();
     this.reportVoiceEnhancements();
+    await this.refreshInputDevices();
     this.watchSpeaking();
     if (wasEnabled) {
       this.enableTracks();
@@ -619,9 +677,7 @@
     const destination = this.audioContext.createMediaStreamDestination();
     source.connect(this.inputGain);
     if (!this.noiseReductionEnabled) {
-      // Keep the physical device on the same WebAudio capture path used by
-      // microphone test pages. WebRTC receives this transparent bridge track
-      // instead of reopening the endpoint in its raw communications path.
+      // Keep the Socket fallback transparent when page denoising is disabled.
       this.inputGain.connect(this.gateGain);
     } else if (this.rnnoiseProcessor) {
       this.inputGain.connect(this.rnnoiseProcessor);
@@ -639,7 +695,10 @@
   }
 
   webRtcStream(inputStream) {
-    return this.processedStream || inputStream;
+    if (this.noiseReductionEnabled && this.rnnoiseProcessor && this.processedStream) {
+      return this.processedStream;
+    }
+    return inputStream;
   }
 
   async prepareRnnoiseProcessor() {
@@ -1177,6 +1236,7 @@
   diagnostics() {
     const inputTrack = this.inputStream?.getAudioTracks?.()[0] || null;
     const webRtcTrack = this.stream?.getAudioTracks?.()[0] || null;
+    const inputSettings = inputTrack?.getSettings?.() || {};
     const p2p = {};
     for (const [peerId, meter] of this.remoteP2PMeters) {
       p2p[peerId] = {
@@ -1204,7 +1264,14 @@
         id: inputTrack.id,
         enabled: inputTrack.enabled,
         muted: inputTrack.muted,
-        readyState: inputTrack.readyState
+        readyState: inputTrack.readyState,
+        deviceId: inputSettings.deviceId || "",
+        sampleRate: inputSettings.sampleRate || null,
+        channelCount: inputSettings.channelCount || null,
+        echoCancellation: inputSettings.echoCancellation ?? null,
+        noiseSuppression: inputSettings.noiseSuppression ?? null,
+        autoGainControl: inputSettings.autoGainControl ?? null,
+        voiceIsolation: inputSettings.voiceIsolation ?? null
       },
       webRtcTrack: webRtcTrack && {
         id: webRtcTrack.id,

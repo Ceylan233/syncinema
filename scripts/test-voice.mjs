@@ -99,6 +99,7 @@ Object.defineProperty(globalThis.navigator, "mediaDevices", {
 });
 const plainConstraints = VoiceManager.prototype.buildAudioConstraints.call({
   noiseReductionEnabled: false,
+  selectedInputDeviceId: "",
   useRnnoiseEngine: () => true,
   rnnoiseStatus: "off"
 });
@@ -107,8 +108,18 @@ assert.equal(
   true,
   "plain mode must use the browser's default capture path so system APO processing remains available"
 );
+const selectedPlainConstraints = VoiceManager.prototype.buildAudioConstraints.call({
+  noiseReductionEnabled: false,
+  selectedInputDeviceId: "apo-device"
+});
+assert.deepEqual(
+  selectedPlainConstraints,
+  { deviceId: { exact: "apo-device" } },
+  "plain mode must select an exact APO-configured microphone without adding processing constraints"
+);
 const denoisedConstraints = VoiceManager.prototype.buildAudioConstraints.call({
   noiseReductionEnabled: true,
+  selectedInputDeviceId: "",
   useRnnoiseEngine: () => true,
   rnnoiseStatus: "ready"
 });
@@ -119,6 +130,7 @@ assert.equal(denoisedConstraints.autoGainControl, false, "RNNoise mode must avoi
 let plainApplyCalls = 0;
 await VoiceManager.prototype.applyVoiceEnhancements.call({
   syntheticCapture: null,
+  noiseReductionEnabled: false,
   inputStream: {
     getAudioTracks: () => [{
       applyConstraints: async () => { plainApplyCalls += 1; }
@@ -170,14 +182,22 @@ assert.ok(denoisedVoiceProfile.makeupGain > 1, "denoised speech must receive mak
 const rawCaptureStream = { id: "raw-microphone" };
 const bridgedCaptureStream = { id: "web-audio-bridge" };
 assert.equal(
-  VoiceManager.prototype.webRtcStream.call({ processedStream: bridgedCaptureStream }, rawCaptureStream),
-  bridgedCaptureStream,
-  "WebRTC must use the WebAudio bridge so Windows endpoint APO processing stays on the capture path"
+  VoiceManager.prototype.webRtcStream.call({
+    noiseReductionEnabled: false,
+    rnnoiseProcessor: null,
+    processedStream: bridgedCaptureStream
+  }, rawCaptureStream),
+  rawCaptureStream,
+  "plain mode must keep the stable microphone track after the bridge experiment proved ineffective"
 );
 assert.equal(
-  VoiceManager.prototype.webRtcStream.call({ processedStream: null }, rawCaptureStream),
-  rawCaptureStream,
-  "WebRTC must fall back to the microphone track when WebAudio is unavailable"
+  VoiceManager.prototype.webRtcStream.call({
+    noiseReductionEnabled: true,
+    rnnoiseProcessor: {},
+    processedStream: bridgedCaptureStream
+  }, rawCaptureStream),
+  bridgedCaptureStream,
+  "RNNoise mode must send the processed track"
 );
 
 console.log("Voice routing tests passed");
