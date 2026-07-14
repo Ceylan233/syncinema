@@ -50,6 +50,14 @@
     this.relaySampleRate = 48000;
     this.relayPlayers = new Map();
     this.voicePacketSeq = 0;
+    this.voicePacketsSent = 0;
+    this.voiceBytesSent = 0;
+    this.voicePacketsReceived = 0;
+    this.voiceBytesReceived = 0;
+    this.lastRelaySentAt = 0;
+    this.lastRelayReceivedAt = 0;
+    this.lastRawRms = 0;
+    this.syntheticCapture = null;
     this.captureHealthTimer = null;
     this.inputVolume = this.loadInputVolume();
     this.noiseReductionEnabled = this.loadNoiseReduction();
@@ -76,10 +84,7 @@
     }
 
     try {
-      this.inputStream = await navigator.mediaDevices.getUserMedia({
-        audio: this.buildAudioConstraints(),
-        video: false
-      });
+      this.inputStream = await this.captureInputStream();
       this.disconnectProcessingGraph();
       await this.prepareRnnoiseProcessor();
       this.processedStream = this.createProcessedStream(this.inputStream);
@@ -103,9 +108,9 @@
     const supported = navigator.mediaDevices.getSupportedConstraints?.() || {};
     const audio = {};
 
-    if (supported.echoCancellation) audio.echoCancellation = true;
+    if (supported.echoCancellation) audio.echoCancellation = this.noiseReductionEnabled;
     if (supported.noiseSuppression) audio.noiseSuppression = this.noiseReductionEnabled;
-    if (supported.autoGainControl) audio.autoGainControl = true;
+    if (supported.autoGainControl) audio.autoGainControl = this.noiseReductionEnabled;
     if (supported.voiceIsolation) audio.voiceIsolation = false;
     if (supported.channelCount) audio.channelCount = { ideal: 1 };
     if (supported.sampleRate) audio.sampleRate = { ideal: 48000 };
@@ -115,6 +120,7 @@
   }
 
   async applyVoiceEnhancements() {
+    if (this.syntheticCapture) return;
     const [track] = this.inputStream?.getAudioTracks() || [];
     if (!track?.applyConstraints) return;
 
@@ -130,7 +136,13 @@
     localStorage.setItem("pc:noise-reduction", this.noiseReductionEnabled ? "1" : "0");
     this.ui.setNoiseControl?.({ enabled: this.noiseReductionEnabled, busy: true });
     if (this.inputStream) {
-      await this.rebuildProcessingGraph();
+      if (this.syntheticCapture) {
+        await this.rebuildProcessingGraph();
+      } else {
+        // Chromium does not consistently apply capture processing changes to an
+        // already-open device, so reopen it with the new constraints.
+        await this.restartCapture();
+      }
     } else {
       await this.applyVoiceEnhancements();
       this.updateProcessingMode();
@@ -150,13 +162,15 @@
     const enabled = [];
     const unsupported = [];
 
-    if (settings.echoCancellation) enabled.push("回声消除");
-    else unsupported.push("回声消除");
+    if (this.noiseReductionEnabled) {
+      if (settings.echoCancellation) enabled.push("回声消除");
+      else unsupported.push("回声消除");
+    }
 
     if (this.noiseReductionEnabled && settings.noiseSuppression) enabled.push("浏览器降噪");
     if (this.noiseReductionEnabled && this.rnnoiseAvailable) enabled.push("RNNoise 强力降噪");
 
-    if (settings.autoGainControl) enabled.push("自动增益");
+    if (this.noiseReductionEnabled && settings.autoGainControl) enabled.push("自动增益");
 
     if (settings.voiceIsolation) enabled.push("人声隔离");
 
@@ -180,6 +194,28 @@
     this.ui.setVoiceState("语音已开启", "ok");
     this.ui.setMicControl({ enabled: true });
     this.startCaptureHealthMonitor();
+  }
+
+  async captureInputStream() {
+    if (new URLSearchParams(window.location.search).get("voiceTest") === "1") {
+      const audioContext = this.ensureAudioContext();
+      await audioContext.resume?.().catch(() => {});
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      const destination = audioContext.createMediaStreamDestination();
+      oscillator.type = "sine";
+      oscillator.frequency.value = 440;
+      gain.gain.value = 0.16;
+      oscillator.connect(gain);
+      gain.connect(destination);
+      oscillator.start();
+      this.syntheticCapture = { oscillator, gain, destination };
+      return destination.stream;
+    }
+    return navigator.mediaDevices.getUserMedia({
+      audio: this.buildAudioConstraints(),
+      video: false
+    });
   }
 
   disable() {
@@ -215,10 +251,8 @@
     this.stopSpeakingWatch();
     this.disconnectProcessingGraph();
     this.inputStream?.getTracks().forEach((track) => track.stop());
-    this.inputStream = await navigator.mediaDevices.getUserMedia({
-      audio: this.buildAudioConstraints(),
-      video: false
-    });
+    this.stopSyntheticCapture();
+    this.inputStream = await this.captureInputStream();
     await this.prepareRnnoiseProcessor();
     this.processedStream = this.createProcessedStream(this.inputStream);
     this.stream = this.webRtcStream(this.inputStream);
@@ -422,6 +456,7 @@
         sum += normalized * normalized;
       }
       const rms = Math.sqrt(sum / samples.length);
+      this.lastRawRms = rms;
       meter.lastRms = rms;
       if (rms > 0.004) {
         const now = Date.now();
@@ -576,9 +611,9 @@
   }
 
   webRtcStream(inputStream) {
-    // A raw capture track stays live when mobile browsers suspend WebAudio.
-    // Browser echo cancellation, noise suppression and AGC are applied on it.
-    return inputStream;
+    // Keep the raw track for the low-latency unprocessed mode. When noise
+    // reduction is enabled, send the same processed signal used by the relay.
+    return this.noiseReductionEnabled && this.processedStream ? this.processedStream : inputStream;
   }
 
   async preloadRnnoiseModule() {
@@ -638,7 +673,7 @@
   }
 
   useRnnoiseEngine() {
-    return localStorage.getItem("pc:noise-engine") === "rnnoise";
+    return localStorage.getItem("pc:noise-engine") !== "off";
   }
 
   processRnnoiseAudio(event) {
@@ -865,6 +900,9 @@
         const downsampled = this.downsample(input, this.audioContext.sampleRate, this.relaySampleRate);
         if (!downsampled?.length) return;
         const pcm = this.floatToInt16(downsampled);
+        this.voicePacketsSent += 1;
+        this.voiceBytesSent += pcm.byteLength;
+        this.lastRelaySentAt = Date.now();
         this.socket.sendVoicePacket(
           {
             sampleRate: this.relaySampleRate,
@@ -972,6 +1010,9 @@
 
     const bytes = await this.resolveVoiceBuffer(buffer);
     if (!bytes?.byteLength) return;
+    this.voicePacketsReceived += 1;
+    this.voiceBytesReceived += bytes.byteLength;
+    this.lastRelayReceivedAt = Date.now();
     const pcm = new Int16Array(bytes);
     if (pcm.length === 0) return;
     const rms = this.pcmRms(pcm);
@@ -1138,6 +1179,56 @@
       output[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
     }
     return output;
+  }
+
+  stopSyntheticCapture() {
+    if (!this.syntheticCapture) return;
+    try {
+      this.syntheticCapture.oscillator?.stop?.();
+      this.syntheticCapture.oscillator?.disconnect?.();
+      this.syntheticCapture.gain?.disconnect?.();
+    } catch {
+      // The synthetic source may already be stopped.
+    }
+    this.syntheticCapture = null;
+  }
+
+  diagnostics() {
+    const inputTrack = this.inputStream?.getAudioTracks?.()[0] || null;
+    const webRtcTrack = this.stream?.getAudioTracks?.()[0] || null;
+    const p2p = {};
+    for (const [peerId, meter] of this.remoteP2PMeters) {
+      p2p[peerId] = {
+        rms: Number(meter.lastRms || 0),
+        lastAudibleAt: Number(meter.lastAudibleAt || 0)
+      };
+    }
+    return {
+      enabled: this.enabled,
+      synthetic: Boolean(this.syntheticCapture),
+      audioContextState: this.audioContext?.state || "none",
+      rawRms: Number(this.lastRawRms || 0),
+      relayTargets: this.relayTargetIds(),
+      voicePacketsSent: this.voicePacketsSent,
+      voiceBytesSent: this.voiceBytesSent,
+      voicePacketsReceived: this.voicePacketsReceived,
+      voiceBytesReceived: this.voiceBytesReceived,
+      lastRelaySentAt: this.lastRelaySentAt,
+      lastRelayReceivedAt: this.lastRelayReceivedAt,
+      inputTrack: inputTrack && {
+        id: inputTrack.id,
+        enabled: inputTrack.enabled,
+        muted: inputTrack.muted,
+        readyState: inputTrack.readyState
+      },
+      webRtcTrack: webRtcTrack && {
+        id: webRtcTrack.id,
+        enabled: webRtcTrack.enabled,
+        muted: webRtcTrack.muted,
+        readyState: webRtcTrack.readyState
+      },
+      p2p
+    };
   }
 
 }

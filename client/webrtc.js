@@ -60,7 +60,7 @@ export class PeerMesh extends EventTarget {
 
   async setLocalStream(stream) {
     this.localStream = stream;
-    this.refreshAudio();
+    await this.refreshAudio();
   }
 
   connectToPeers(peerIds) {
@@ -69,19 +69,17 @@ export class PeerMesh extends EventTarget {
       if (!activePeerIds.has(peerId)) this.removePeer(peerId);
     }
     activePeerIds.forEach((peerId) => this.ensurePeer(peerId, true));
-    this.refreshAudio();
+    void this.refreshAudio();
   }
 
   ensureReceiveOnlyPeers(peerIds = []) {
     this.connectToPeers(peerIds);
   }
 
-  refreshAudio() {
-    for (const peer of this.peers.values()) {
-      this.addStreamTracks(peer);
-      this.scheduleRenegotiate(peer.id, 80);
-      this.scheduleRenegotiate(peer.id, 1000);
-    }
+  async refreshAudio() {
+    const peers = Array.from(this.peers.values());
+    await Promise.all(peers.map((peer) => this.addStreamTracks(peer)));
+    for (const peer of peers) this.scheduleRenegotiate(peer.id, 80);
   }
 
   reset() {
@@ -156,7 +154,7 @@ export class PeerMesh extends EventTarget {
           await peer.pc.addIceCandidate(peer.queuedCandidates.shift());
         }
         if (description.type === "offer") {
-          this.addStreamTracks(peer);
+          await this.addStreamTracks(peer);
           await peer.pc.setLocalDescription(await peer.pc.createAnswer());
           this.sendPeerSignal(peer, { description: peer.pc.localDescription });
         }
@@ -230,7 +228,7 @@ export class PeerMesh extends EventTarget {
     this.peers.set(peerId, peer);
 
     this.ensureAudioTransceiver(peer);
-    this.addStreamTracks(peer);
+    void this.addStreamTracks(peer);
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -307,17 +305,16 @@ export class PeerMesh extends EventTarget {
     return String(this.selfId) > String(peerId);
   }
 
-  addStreamTracks(peer) {
+  async addStreamTracks(peer) {
     const audioTrack = this.localStream?.getAudioTracks?.()[0] || null;
     const transceiver = this.ensureAudioTransceiver(peer);
     if (!transceiver) return;
     transceiver.direction = audioTrack ? "sendrecv" : "recvonly";
     if (transceiver.sender.track !== audioTrack) {
-      transceiver.sender.replaceTrack(audioTrack).catch((error) => {
+      await transceiver.sender.replaceTrack(audioTrack).catch((error) => {
         console.warn("Audio track replace failed", error);
       });
     }
-    this.tuneAudioSender(transceiver.sender);
   }
 
   ensureAudioTransceiver(peer) {
@@ -331,23 +328,6 @@ export class PeerMesh extends EventTarget {
         direction: this.localStream?.getAudioTracks?.()[0] ? "sendrecv" : "recvonly"
       });
     return peer.audioTransceiver;
-  }
-
-  async tuneAudioSender(sender) {
-    if (!sender?.getParameters || !sender?.setParameters) return;
-    try {
-      const parameters = sender.getParameters();
-      parameters.encodings = parameters.encodings?.length ? parameters.encodings : [{}];
-      parameters.encodings[0] = {
-        ...parameters.encodings[0],
-        maxBitrate: 48000,
-        priority: "high",
-        networkPriority: "high"
-      };
-      await sender.setParameters(parameters);
-    } catch (error) {
-      console.warn("Audio sender tuning failed", error);
-    }
   }
 
   sendPeerSignal(peer, payload) {
@@ -528,12 +508,12 @@ export class PeerMesh extends EventTarget {
       if (options.force || peer.repairAttempts >= 3) {
         this.removePeer(peerId);
         const nextPeer = this.ensurePeer(peerId, true);
-        this.addStreamTracks(nextPeer);
+        void this.addStreamTracks(nextPeer);
         this.scheduleRenegotiate(peerId, 120);
         continue;
       }
 
-      this.addStreamTracks(peer);
+      void this.addStreamTracks(peer);
       if (peer.pc.iceConnectionState === "failed" || peer.pc.connectionState === "failed") {
         this.restartIce(peer);
       } else {
@@ -573,6 +553,57 @@ export class PeerMesh extends EventTarget {
       disconnected: peers.filter((peer) => ["disconnected", "failed", "closed"].includes(peer.pc.connectionState)).length,
       channelsOpen: peers.filter((peer) => peer.channel?.readyState === "open").length
     };
+  }
+
+  async diagnostics() {
+    const peers = [];
+    for (const peer of this.peers.values()) {
+      let outboundAudio = null;
+      let inboundAudio = null;
+      try {
+        const stats = await peer.pc.getStats();
+        stats.forEach((report) => {
+          if (report.type === "outbound-rtp" && report.kind === "audio") {
+            outboundAudio = {
+              bytesSent: Number(report.bytesSent || 0),
+              packetsSent: Number(report.packetsSent || 0)
+            };
+          }
+          if (report.type === "inbound-rtp" && report.kind === "audio") {
+            inboundAudio = {
+              bytesReceived: Number(report.bytesReceived || 0),
+              packetsReceived: Number(report.packetsReceived || 0),
+              packetsLost: Number(report.packetsLost || 0)
+            };
+          }
+        });
+      } catch {
+        // A closing peer may reject getStats while diagnostics are collected.
+      }
+      const senderTrack = peer.audioTransceiver?.sender?.track || null;
+      const receiverTrack = peer.audioTransceiver?.receiver?.track || null;
+      peers.push({
+        peerId: peer.id,
+        connectionState: peer.pc.connectionState,
+        iceConnectionState: peer.pc.iceConnectionState,
+        signalingState: peer.pc.signalingState,
+        senderTrack: senderTrack && {
+          id: senderTrack.id,
+          enabled: senderTrack.enabled,
+          muted: senderTrack.muted,
+          readyState: senderTrack.readyState
+        },
+        receiverTrack: receiverTrack && {
+          id: receiverTrack.id,
+          enabled: receiverTrack.enabled,
+          muted: receiverTrack.muted,
+          readyState: receiverTrack.readyState
+        },
+        outboundAudio,
+        inboundAudio
+      });
+    }
+    return { selfId: this.selfId, localTrackCount: this.localStream?.getAudioTracks?.().length || 0, peers };
   }
 
   async sendChunk(peerId, header, buffer) {

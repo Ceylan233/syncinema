@@ -3790,7 +3790,7 @@ var PeerMesh = class extends EventTarget {
   }
   async setLocalStream(stream) {
     this.localStream = stream;
-    this.refreshAudio();
+    await this.refreshAudio();
   }
   connectToPeers(peerIds) {
     const activePeerIds = new Set(peerIds.filter((peerId) => peerId && peerId !== this.selfId));
@@ -3798,17 +3798,15 @@ var PeerMesh = class extends EventTarget {
       if (!activePeerIds.has(peerId)) this.removePeer(peerId);
     }
     activePeerIds.forEach((peerId) => this.ensurePeer(peerId, true));
-    this.refreshAudio();
+    void this.refreshAudio();
   }
   ensureReceiveOnlyPeers(peerIds = []) {
     this.connectToPeers(peerIds);
   }
-  refreshAudio() {
-    for (const peer of this.peers.values()) {
-      this.addStreamTracks(peer);
-      this.scheduleRenegotiate(peer.id, 80);
-      this.scheduleRenegotiate(peer.id, 1e3);
-    }
+  async refreshAudio() {
+    const peers = Array.from(this.peers.values());
+    await Promise.all(peers.map((peer) => this.addStreamTracks(peer)));
+    for (const peer of peers) this.scheduleRenegotiate(peer.id, 80);
   }
   reset() {
     for (const peer of this.peers.values()) {
@@ -3865,7 +3863,7 @@ var PeerMesh = class extends EventTarget {
           await peer.pc.addIceCandidate(peer.queuedCandidates.shift());
         }
         if (description.type === "offer") {
-          this.addStreamTracks(peer);
+          await this.addStreamTracks(peer);
           await peer.pc.setLocalDescription(await peer.pc.createAnswer());
           this.sendPeerSignal(peer, { description: peer.pc.localDescription });
         }
@@ -3933,7 +3931,7 @@ var PeerMesh = class extends EventTarget {
     };
     this.peers.set(peerId, peer);
     this.ensureAudioTransceiver(peer);
-    this.addStreamTracks(peer);
+    void this.addStreamTracks(peer);
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         this.sendPeerSignal(peer, { candidate: event.candidate });
@@ -4000,17 +3998,16 @@ var PeerMesh = class extends EventTarget {
     if (!this.selfId || !peerId) return false;
     return String(this.selfId) > String(peerId);
   }
-  addStreamTracks(peer) {
+  async addStreamTracks(peer) {
     const audioTrack = this.localStream?.getAudioTracks?.()[0] || null;
     const transceiver = this.ensureAudioTransceiver(peer);
     if (!transceiver) return;
     transceiver.direction = audioTrack ? "sendrecv" : "recvonly";
     if (transceiver.sender.track !== audioTrack) {
-      transceiver.sender.replaceTrack(audioTrack).catch((error) => {
+      await transceiver.sender.replaceTrack(audioTrack).catch((error) => {
         console.warn("Audio track replace failed", error);
       });
     }
-    this.tuneAudioSender(transceiver.sender);
   }
   ensureAudioTransceiver(peer) {
     if (peer.audioTransceiver) return peer.audioTransceiver;
@@ -4019,22 +4016,6 @@ var PeerMesh = class extends EventTarget {
       direction: this.localStream?.getAudioTracks?.()[0] ? "sendrecv" : "recvonly"
     });
     return peer.audioTransceiver;
-  }
-  async tuneAudioSender(sender) {
-    if (!sender?.getParameters || !sender?.setParameters) return;
-    try {
-      const parameters = sender.getParameters();
-      parameters.encodings = parameters.encodings?.length ? parameters.encodings : [{}];
-      parameters.encodings[0] = {
-        ...parameters.encodings[0],
-        maxBitrate: 48e3,
-        priority: "high",
-        networkPriority: "high"
-      };
-      await sender.setParameters(parameters);
-    } catch (error) {
-      console.warn("Audio sender tuning failed", error);
-    }
   }
   sendPeerSignal(peer, payload) {
     this.socket.sendSignal(peer.id, {
@@ -4184,11 +4165,11 @@ var PeerMesh = class extends EventTarget {
       if (options.force || peer.repairAttempts >= 3) {
         this.removePeer(peerId);
         const nextPeer = this.ensurePeer(peerId, true);
-        this.addStreamTracks(nextPeer);
+        void this.addStreamTracks(nextPeer);
         this.scheduleRenegotiate(peerId, 120);
         continue;
       }
-      this.addStreamTracks(peer);
+      void this.addStreamTracks(peer);
       if (peer.pc.iceConnectionState === "failed" || peer.pc.connectionState === "failed") {
         this.restartIce(peer);
       } else {
@@ -4224,6 +4205,55 @@ var PeerMesh = class extends EventTarget {
       disconnected: peers.filter((peer) => ["disconnected", "failed", "closed"].includes(peer.pc.connectionState)).length,
       channelsOpen: peers.filter((peer) => peer.channel?.readyState === "open").length
     };
+  }
+  async diagnostics() {
+    const peers = [];
+    for (const peer of this.peers.values()) {
+      let outboundAudio = null;
+      let inboundAudio = null;
+      try {
+        const stats = await peer.pc.getStats();
+        stats.forEach((report) => {
+          if (report.type === "outbound-rtp" && report.kind === "audio") {
+            outboundAudio = {
+              bytesSent: Number(report.bytesSent || 0),
+              packetsSent: Number(report.packetsSent || 0)
+            };
+          }
+          if (report.type === "inbound-rtp" && report.kind === "audio") {
+            inboundAudio = {
+              bytesReceived: Number(report.bytesReceived || 0),
+              packetsReceived: Number(report.packetsReceived || 0),
+              packetsLost: Number(report.packetsLost || 0)
+            };
+          }
+        });
+      } catch {
+      }
+      const senderTrack = peer.audioTransceiver?.sender?.track || null;
+      const receiverTrack = peer.audioTransceiver?.receiver?.track || null;
+      peers.push({
+        peerId: peer.id,
+        connectionState: peer.pc.connectionState,
+        iceConnectionState: peer.pc.iceConnectionState,
+        signalingState: peer.pc.signalingState,
+        senderTrack: senderTrack && {
+          id: senderTrack.id,
+          enabled: senderTrack.enabled,
+          muted: senderTrack.muted,
+          readyState: senderTrack.readyState
+        },
+        receiverTrack: receiverTrack && {
+          id: receiverTrack.id,
+          enabled: receiverTrack.enabled,
+          muted: receiverTrack.muted,
+          readyState: receiverTrack.readyState
+        },
+        outboundAudio,
+        inboundAudio
+      });
+    }
+    return { selfId: this.selfId, localTrackCount: this.localStream?.getAudioTracks?.().length || 0, peers };
   }
   async sendChunk(peerId, header, buffer2) {
     const peer = this.peers.get(peerId);
@@ -4322,6 +4352,14 @@ var VoiceManager = class extends EventTarget {
     this.relaySampleRate = 48e3;
     this.relayPlayers = /* @__PURE__ */ new Map();
     this.voicePacketSeq = 0;
+    this.voicePacketsSent = 0;
+    this.voiceBytesSent = 0;
+    this.voicePacketsReceived = 0;
+    this.voiceBytesReceived = 0;
+    this.lastRelaySentAt = 0;
+    this.lastRelayReceivedAt = 0;
+    this.lastRawRms = 0;
+    this.syntheticCapture = null;
     this.captureHealthTimer = null;
     this.inputVolume = this.loadInputVolume();
     this.noiseReductionEnabled = this.loadNoiseReduction();
@@ -4343,10 +4381,7 @@ var VoiceManager = class extends EventTarget {
       throw new Error("getUserMedia requires a secure context");
     }
     try {
-      this.inputStream = await navigator.mediaDevices.getUserMedia({
-        audio: this.buildAudioConstraints(),
-        video: false
-      });
+      this.inputStream = await this.captureInputStream();
       this.disconnectProcessingGraph();
       await this.prepareRnnoiseProcessor();
       this.processedStream = this.createProcessedStream(this.inputStream);
@@ -4368,9 +4403,9 @@ var VoiceManager = class extends EventTarget {
   buildAudioConstraints() {
     const supported2 = navigator.mediaDevices.getSupportedConstraints?.() || {};
     const audio = {};
-    if (supported2.echoCancellation) audio.echoCancellation = true;
+    if (supported2.echoCancellation) audio.echoCancellation = this.noiseReductionEnabled;
     if (supported2.noiseSuppression) audio.noiseSuppression = this.noiseReductionEnabled;
-    if (supported2.autoGainControl) audio.autoGainControl = true;
+    if (supported2.autoGainControl) audio.autoGainControl = this.noiseReductionEnabled;
     if (supported2.voiceIsolation) audio.voiceIsolation = false;
     if (supported2.channelCount) audio.channelCount = { ideal: 1 };
     if (supported2.sampleRate) audio.sampleRate = { ideal: 48e3 };
@@ -4378,6 +4413,7 @@ var VoiceManager = class extends EventTarget {
     return Object.keys(audio).length > 0 ? audio : true;
   }
   async applyVoiceEnhancements() {
+    if (this.syntheticCapture) return;
     const [track2] = this.inputStream?.getAudioTracks() || [];
     if (!track2?.applyConstraints) return;
     try {
@@ -4391,7 +4427,11 @@ var VoiceManager = class extends EventTarget {
     localStorage.setItem("pc:noise-reduction", this.noiseReductionEnabled ? "1" : "0");
     this.ui.setNoiseControl?.({ enabled: this.noiseReductionEnabled, busy: true });
     if (this.inputStream) {
-      await this.rebuildProcessingGraph();
+      if (this.syntheticCapture) {
+        await this.rebuildProcessingGraph();
+      } else {
+        await this.restartCapture();
+      }
     } else {
       await this.applyVoiceEnhancements();
       this.updateProcessingMode();
@@ -4408,11 +4448,13 @@ var VoiceManager = class extends EventTarget {
     const settings = track2?.getSettings?.() || {};
     const enabled = [];
     const unsupported = [];
-    if (settings.echoCancellation) enabled.push("回声消除");
-    else unsupported.push("回声消除");
+    if (this.noiseReductionEnabled) {
+      if (settings.echoCancellation) enabled.push("回声消除");
+      else unsupported.push("回声消除");
+    }
     if (this.noiseReductionEnabled && settings.noiseSuppression) enabled.push("浏览器降噪");
     if (this.noiseReductionEnabled && this.rnnoiseAvailable) enabled.push("RNNoise 强力降噪");
-    if (settings.autoGainControl) enabled.push("自动增益");
+    if (this.noiseReductionEnabled && settings.autoGainControl) enabled.push("自动增益");
     if (settings.voiceIsolation) enabled.push("人声隔离");
     if (enabled.length > 0) {
       this.ui.addSystemMessage(`麦克风处理已启用：${enabled.join("、")}、软件噪声门。`);
@@ -4432,6 +4474,28 @@ var VoiceManager = class extends EventTarget {
     this.ui.setVoiceState("语音已开启", "ok");
     this.ui.setMicControl({ enabled: true });
     this.startCaptureHealthMonitor();
+  }
+  async captureInputStream() {
+    if (new URLSearchParams(window.location.search).get("voiceTest") === "1") {
+      const audioContext = this.ensureAudioContext();
+      await audioContext.resume?.().catch(() => {
+      });
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      const destination = audioContext.createMediaStreamDestination();
+      oscillator.type = "sine";
+      oscillator.frequency.value = 440;
+      gain.gain.value = 0.16;
+      oscillator.connect(gain);
+      gain.connect(destination);
+      oscillator.start();
+      this.syntheticCapture = { oscillator, gain, destination };
+      return destination.stream;
+    }
+    return navigator.mediaDevices.getUserMedia({
+      audio: this.buildAudioConstraints(),
+      video: false
+    });
   }
   disable() {
     this.enabled = false;
@@ -4463,10 +4527,8 @@ var VoiceManager = class extends EventTarget {
     this.stopSpeakingWatch();
     this.disconnectProcessingGraph();
     this.inputStream?.getTracks().forEach((track2) => track2.stop());
-    this.inputStream = await navigator.mediaDevices.getUserMedia({
-      audio: this.buildAudioConstraints(),
-      video: false
-    });
+    this.stopSyntheticCapture();
+    this.inputStream = await this.captureInputStream();
     await this.prepareRnnoiseProcessor();
     this.processedStream = this.createProcessedStream(this.inputStream);
     this.stream = this.webRtcStream(this.inputStream);
@@ -4657,6 +4719,7 @@ var VoiceManager = class extends EventTarget {
         sum += normalized * normalized;
       }
       const rms = Math.sqrt(sum / samples.length);
+      this.lastRawRms = rms;
       meter.lastRms = rms;
       if (rms > 4e-3) {
         const now = Date.now();
@@ -4789,7 +4852,7 @@ var VoiceManager = class extends EventTarget {
     return destination.stream;
   }
   webRtcStream(inputStream) {
-    return inputStream;
+    return this.noiseReductionEnabled && this.processedStream ? this.processedStream : inputStream;
   }
   async preloadRnnoiseModule() {
     if (this.rnnoiseModule) return true;
@@ -4845,7 +4908,7 @@ var VoiceManager = class extends EventTarget {
     }
   }
   useRnnoiseEngine() {
-    return localStorage.getItem("pc:noise-engine") === "rnnoise";
+    return localStorage.getItem("pc:noise-engine") !== "off";
   }
   processRnnoiseAudio(event) {
     const input = event.inputBuffer.getChannelData(0);
@@ -5043,6 +5106,9 @@ var VoiceManager = class extends EventTarget {
         const downsampled = this.downsample(input, this.audioContext.sampleRate, this.relaySampleRate);
         if (!downsampled?.length) return;
         const pcm = this.floatToInt16(downsampled);
+        this.voicePacketsSent += 1;
+        this.voiceBytesSent += pcm.byteLength;
+        this.lastRelaySentAt = Date.now();
         this.socket.sendVoicePacket(
           {
             sampleRate: this.relaySampleRate,
@@ -5141,6 +5207,9 @@ var VoiceManager = class extends EventTarget {
     player2.lastArrivalAt = nowMs;
     const bytes = await this.resolveVoiceBuffer(buffer2);
     if (!bytes?.byteLength) return;
+    this.voicePacketsReceived += 1;
+    this.voiceBytesReceived += bytes.byteLength;
+    this.lastRelayReceivedAt = Date.now();
     const pcm = new Int16Array(bytes);
     if (pcm.length === 0) return;
     const rms = this.pcmRms(pcm);
@@ -5292,6 +5361,53 @@ var VoiceManager = class extends EventTarget {
       output[index] = sample < 0 ? sample * 32768 : sample * 32767;
     }
     return output;
+  }
+  stopSyntheticCapture() {
+    if (!this.syntheticCapture) return;
+    try {
+      this.syntheticCapture.oscillator?.stop?.();
+      this.syntheticCapture.oscillator?.disconnect?.();
+      this.syntheticCapture.gain?.disconnect?.();
+    } catch {
+    }
+    this.syntheticCapture = null;
+  }
+  diagnostics() {
+    const inputTrack = this.inputStream?.getAudioTracks?.()[0] || null;
+    const webRtcTrack = this.stream?.getAudioTracks?.()[0] || null;
+    const p2p = {};
+    for (const [peerId, meter] of this.remoteP2PMeters) {
+      p2p[peerId] = {
+        rms: Number(meter.lastRms || 0),
+        lastAudibleAt: Number(meter.lastAudibleAt || 0)
+      };
+    }
+    return {
+      enabled: this.enabled,
+      synthetic: Boolean(this.syntheticCapture),
+      audioContextState: this.audioContext?.state || "none",
+      rawRms: Number(this.lastRawRms || 0),
+      relayTargets: this.relayTargetIds(),
+      voicePacketsSent: this.voicePacketsSent,
+      voiceBytesSent: this.voiceBytesSent,
+      voicePacketsReceived: this.voicePacketsReceived,
+      voiceBytesReceived: this.voiceBytesReceived,
+      lastRelaySentAt: this.lastRelaySentAt,
+      lastRelayReceivedAt: this.lastRelayReceivedAt,
+      inputTrack: inputTrack && {
+        id: inputTrack.id,
+        enabled: inputTrack.enabled,
+        muted: inputTrack.muted,
+        readyState: inputTrack.readyState
+      },
+      webRtcTrack: webRtcTrack && {
+        id: webRtcTrack.id,
+        enabled: webRtcTrack.enabled,
+        muted: webRtcTrack.muted,
+        readyState: webRtcTrack.readyState
+      },
+      p2p
+    };
   }
 };
 
@@ -39255,6 +39371,20 @@ var lastAppliedRemoteControlVersion = 0;
 var onlineHeartbeatLeaderClientId = null;
 var announcedRoomId = null;
 var remoteAudioStates = /* @__PURE__ */ new Map();
+window.syncinemaVoiceDiagnostics = async () => ({
+  roomId: currentRoomId,
+  selfId,
+  users: latestUsers.map((user) => ({ id: user.id, name: user.name, online: user.online })),
+  voice: voice.diagnostics(),
+  mesh: await mesh.diagnostics()
+});
+if (new URLSearchParams(window.location.search).get("voiceTest") === "1") {
+  window.setInterval(async () => {
+    document.documentElement.dataset.voiceDiagnostics = JSON.stringify(
+      await window.syncinemaVoiceDiagnostics()
+    );
+  }, 500);
+}
 async function boot() {
   wireSocket();
   wireWebRTC();

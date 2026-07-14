@@ -85,6 +85,22 @@ let onlineHeartbeatLeaderClientId = null;
 let announcedRoomId = null;
 const remoteAudioStates = new Map();
 
+window.syncinemaVoiceDiagnostics = async () => ({
+  roomId: currentRoomId,
+  selfId,
+  users: latestUsers.map((user) => ({ id: user.id, name: user.name, online: user.online })),
+  voice: voice.diagnostics(),
+  mesh: await mesh.diagnostics()
+});
+
+if (new URLSearchParams(window.location.search).get("voiceTest") === "1") {
+  window.setInterval(async () => {
+    document.documentElement.dataset.voiceDiagnostics = JSON.stringify(
+      await window.syncinemaVoiceDiagnostics()
+    );
+  }, 500);
+}
+
 async function boot() {
   wireSocket();
   wireWebRTC();

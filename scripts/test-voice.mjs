@@ -97,8 +97,14 @@ Object.defineProperty(globalThis.navigator, "mediaDevices", {
     })
   }
 });
-const constraints = VoiceManager.prototype.buildAudioConstraints.call({ noiseReductionEnabled: false });
-assert.equal(constraints.autoGainControl, true, "supported automatic gain control must be enabled");
+const plainConstraints = VoiceManager.prototype.buildAudioConstraints.call({ noiseReductionEnabled: false });
+assert.equal(plainConstraints.echoCancellation, false, "APO mode must not add browser echo cancellation");
+assert.equal(plainConstraints.noiseSuppression, false, "APO mode must not add browser noise suppression");
+assert.equal(plainConstraints.autoGainControl, false, "APO mode must not add browser automatic gain control");
+const denoisedConstraints = VoiceManager.prototype.buildAudioConstraints.call({ noiseReductionEnabled: true });
+assert.equal(denoisedConstraints.echoCancellation, true, "denoising mode must enable echo cancellation");
+assert.equal(denoisedConstraints.noiseSuppression, true, "denoising mode must enable browser noise suppression");
+assert.equal(denoisedConstraints.autoGainControl, true, "denoising mode must enable automatic gain control");
 Object.defineProperty(globalThis.navigator, "mediaDevices", {
   configurable: true,
   value: originalMediaDevices
