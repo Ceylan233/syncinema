@@ -4559,8 +4559,7 @@ var VoiceManager = class extends EventTarget {
     const testMode = new URLSearchParams(window.location.search).get("voiceTest");
     if (testMode === "1" || testMode === "noise") {
       const audioContext = this.ensureAudioContext();
-      await audioContext.resume?.().catch(() => {
-      });
+      await this.resumeCaptureContext();
       const gain = audioContext.createGain();
       const destination = audioContext.createMediaStreamDestination();
       gain.gain.value = 0.16;
@@ -4713,12 +4712,16 @@ var VoiceManager = class extends EventTarget {
     if (!this.audioContext && AudioContextClass) this.audioContext = new AudioContextClass();
     return this.audioContext;
   }
-  async resumeCaptureContext() {
+  async resumeCaptureContext(timeoutMs = 450) {
     const audioContext = this.audioContext;
     if (!audioContext) return false;
     if (audioContext.state !== "running") {
-      await audioContext.resume?.().catch(() => {
+      const resume = Promise.resolve(audioContext.resume?.()).catch(() => {
       });
+      await Promise.race([
+        resume,
+        new Promise((resolve2) => globalThis.setTimeout(resolve2, timeoutMs))
+      ]);
     }
     return audioContext.state === "running";
   }
@@ -4929,7 +4932,9 @@ var VoiceManager = class extends EventTarget {
     this.gateGain.gain.value = 1;
     const destination = this.audioContext.createMediaStreamDestination();
     source.connect(this.inputGain);
-    if (this.noiseReductionEnabled && this.rnnoiseProcessor) {
+    if (!this.noiseReductionEnabled) {
+      this.inputGain.connect(this.gateGain);
+    } else if (this.rnnoiseProcessor) {
       this.inputGain.connect(this.rnnoiseProcessor);
       this.rnnoiseProcessor.connect(this.gateGain);
     } else {
@@ -4943,10 +4948,7 @@ var VoiceManager = class extends EventTarget {
     return destination.stream;
   }
   webRtcStream(inputStream) {
-    if (this.noiseReductionEnabled && this.rnnoiseProcessor && this.processedStream) {
-      return this.processedStream;
-    }
-    return inputStream;
+    return this.processedStream || inputStream;
   }
   async prepareRnnoiseProcessor() {
     this.rnnoiseNode = null;

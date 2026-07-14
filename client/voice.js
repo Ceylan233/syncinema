@@ -208,7 +208,7 @@
     const testMode = new URLSearchParams(window.location.search).get("voiceTest");
     if (testMode === "1" || testMode === "noise") {
       const audioContext = this.ensureAudioContext();
-      await audioContext.resume?.().catch(() => {});
+      await this.resumeCaptureContext();
       const gain = audioContext.createGain();
       const destination = audioContext.createMediaStreamDestination();
       gain.gain.value = 0.16;
@@ -370,11 +370,15 @@
     return this.audioContext;
   }
 
-  async resumeCaptureContext() {
+  async resumeCaptureContext(timeoutMs = 450) {
     const audioContext = this.audioContext;
     if (!audioContext) return false;
     if (audioContext.state !== "running") {
-      await audioContext.resume?.().catch(() => {});
+      const resume = Promise.resolve(audioContext.resume?.()).catch(() => {});
+      await Promise.race([
+        resume,
+        new Promise((resolve) => globalThis.setTimeout(resolve, timeoutMs))
+      ]);
     }
     return audioContext.state === "running";
   }
@@ -614,7 +618,12 @@
 
     const destination = this.audioContext.createMediaStreamDestination();
     source.connect(this.inputGain);
-    if (this.noiseReductionEnabled && this.rnnoiseProcessor) {
+    if (!this.noiseReductionEnabled) {
+      // Keep the physical device on the same WebAudio capture path used by
+      // microphone test pages. WebRTC receives this transparent bridge track
+      // instead of reopening the endpoint in its raw communications path.
+      this.inputGain.connect(this.gateGain);
+    } else if (this.rnnoiseProcessor) {
       this.inputGain.connect(this.rnnoiseProcessor);
       this.rnnoiseProcessor.connect(this.gateGain);
     } else {
@@ -630,14 +639,7 @@
   }
 
   webRtcStream(inputStream) {
-    if (
-      this.noiseReductionEnabled &&
-      this.rnnoiseProcessor &&
-      this.processedStream
-    ) {
-      return this.processedStream;
-    }
-    return inputStream;
+    return this.processedStream || inputStream;
   }
 
   async prepareRnnoiseProcessor() {

@@ -148,6 +148,18 @@ assert.equal(
   "a suspended capture context must resume automatically"
 );
 
+const blockedContext = {
+  state: "suspended",
+  resume: () => new Promise(() => {})
+};
+const blockedResumeStartedAt = Date.now();
+assert.equal(
+  await VoiceManager.prototype.resumeCaptureContext.call({ audioContext: blockedContext }, 20),
+  false,
+  "a blocked AudioContext resume must time out instead of hanging microphone startup"
+);
+assert.ok(Date.now() - blockedResumeStartedAt < 200, "blocked AudioContext resume must return promptly");
+
 const plainVoiceProfile = VoiceManager.prototype.processingProfile.call({ noiseReductionEnabled: false });
 const denoisedVoiceProfile = VoiceManager.prototype.processingProfile.call({ noiseReductionEnabled: true });
 assert.ok(plainVoiceProfile.ratio >= 1.5, "plain voice must keep gentle transient compression");
@@ -156,10 +168,16 @@ assert.ok(denoisedVoiceProfile.ratio < 2, "denoising must avoid over-compressing
 assert.ok(denoisedVoiceProfile.makeupGain > 1, "denoised speech must receive makeup gain");
 
 const rawCaptureStream = { id: "raw-microphone" };
+const bridgedCaptureStream = { id: "web-audio-bridge" };
 assert.equal(
-  VoiceManager.prototype.webRtcStream.call({}, rawCaptureStream),
+  VoiceManager.prototype.webRtcStream.call({ processedStream: bridgedCaptureStream }, rawCaptureStream),
+  bridgedCaptureStream,
+  "WebRTC must use the WebAudio bridge so Windows endpoint APO processing stays on the capture path"
+);
+assert.equal(
+  VoiceManager.prototype.webRtcStream.call({ processedStream: null }, rawCaptureStream),
   rawCaptureStream,
-  "WebRTC must use the raw microphone track instead of a suspendable WebAudio destination"
+  "WebRTC must fall back to the microphone track when WebAudio is unavailable"
 );
 
 console.log("Voice routing tests passed");
