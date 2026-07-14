@@ -74,4 +74,34 @@ assert.equal(
   "intentionally disabled auto gain must not be reported as unsupported"
 );
 
+const originalMediaDevices = globalThis.navigator.mediaDevices;
+Object.defineProperty(globalThis.navigator, "mediaDevices", {
+  configurable: true,
+  value: {
+    getSupportedConstraints: () => ({
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    })
+  }
+});
+const constraints = VoiceManager.prototype.buildAudioConstraints.call({ noiseReductionEnabled: false });
+assert.equal(constraints.autoGainControl, true, "supported automatic gain control must be enabled");
+Object.defineProperty(globalThis.navigator, "mediaDevices", {
+  configurable: true,
+  value: originalMediaDevices
+});
+
+const suspendedContext = {
+  state: "suspended",
+  async resume() {
+    this.state = "running";
+  }
+};
+assert.equal(
+  await VoiceManager.prototype.resumeCaptureContext.call({ audioContext: suspendedContext }),
+  true,
+  "a suspended capture context must resume automatically"
+);
+
 console.log("Voice routing tests passed");

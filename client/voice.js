@@ -48,6 +48,7 @@
     this.relaySampleRate = 48000;
     this.relayPlayers = new Map();
     this.voicePacketSeq = 0;
+    this.captureHealthTimer = null;
     this.inputVolume = this.loadInputVolume();
     this.noiseReductionEnabled = this.loadNoiseReduction();
     this.ui.setNoiseControl?.({ enabled: this.noiseReductionEnabled });
@@ -80,6 +81,7 @@
       this.disconnectProcessingGraph();
       await this.prepareRnnoiseProcessor();
       this.stream = this.createProcessedStream(this.inputStream);
+      await this.resumeCaptureContext();
       await this.applyVoiceEnhancements();
       this.reportVoiceEnhancements();
       this.enableTracks();
@@ -100,7 +102,7 @@
 
     if (supported.echoCancellation) audio.echoCancellation = true;
     if (supported.noiseSuppression) audio.noiseSuppression = this.noiseReductionEnabled;
-    if (supported.autoGainControl) audio.autoGainControl = false;
+    if (supported.autoGainControl) audio.autoGainControl = true;
     if (supported.voiceIsolation) audio.voiceIsolation = false;
     if (supported.channelCount) audio.channelCount = { ideal: 1 };
     if (supported.sampleRate) audio.sampleRate = { ideal: 48000 };
@@ -174,10 +176,12 @@
     });
     this.ui.setVoiceState("语音已开启", "ok");
     this.ui.setMicControl({ enabled: true });
+    this.startCaptureHealthMonitor();
   }
 
   disable() {
     this.enabled = false;
+    this.stopCaptureHealthMonitor();
     this.inputStream?.getAudioTracks().forEach((track) => {
       track.enabled = false;
     });
@@ -214,6 +218,7 @@
     });
     await this.prepareRnnoiseProcessor();
     this.stream = this.createProcessedStream(this.inputStream);
+    await this.resumeCaptureContext();
     await this.applyVoiceEnhancements();
     this.reportVoiceEnhancements();
     this.watchSpeaking();
@@ -233,6 +238,7 @@
     await this.applyVoiceEnhancements();
     await this.prepareRnnoiseProcessor();
     this.stream = this.createProcessedStream(this.inputStream);
+    await this.resumeCaptureContext();
     this.watchSpeaking();
     if (wasEnabled) {
       this.enableTracks();
@@ -300,6 +306,29 @@
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!this.audioContext && AudioContextClass) this.audioContext = new AudioContextClass();
     return this.audioContext;
+  }
+
+  async resumeCaptureContext() {
+    const audioContext = this.audioContext;
+    if (!audioContext) return false;
+    if (audioContext.state !== "running") {
+      await audioContext.resume?.().catch(() => {});
+    }
+    return audioContext.state === "running";
+  }
+
+  startCaptureHealthMonitor() {
+    this.stopCaptureHealthMonitor();
+    const resume = () => {
+      if (this.enabled) this.resumeCaptureContext();
+    };
+    resume();
+    this.captureHealthTimer = window.setInterval(resume, 1500);
+  }
+
+  stopCaptureHealthMonitor() {
+    if (this.captureHealthTimer) window.clearInterval(this.captureHealthTimer);
+    this.captureHealthTimer = null;
   }
 
   primeAudioOutput(audioContext = this.audioContext) {

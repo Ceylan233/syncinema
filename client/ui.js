@@ -338,6 +338,12 @@ export class UI {
     this.state.roomId = cleanRoomId;
     this.state.sourceControlsVisible = cleanRoomId !== "1";
     this.state.voiceControlsVisible = cleanRoomId !== "1";
+    if (cleanRoomId === "1") {
+      this.state.systemNotifications = this.state.systemNotifications.filter(
+        (notice) => !String(notice?.text || "").includes("房间")
+      );
+      this.state.systemNotificationUnread = 0;
+    }
   }
 
   setVoiceState(text, tone = "") {
@@ -493,6 +499,7 @@ export class UI {
   addSystemMessage(text) {
     const cleanText = String(text || "").trim();
     if (!cleanText) return false;
+    if (this.state.roomId === "1" && cleanText.includes("房间")) return false;
     const now = Date.now();
     const lastAt = this.recentSystemMessages.get(cleanText) || 0;
     if (now - lastAt < 6000) return false;
