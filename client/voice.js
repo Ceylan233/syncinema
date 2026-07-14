@@ -104,6 +104,10 @@
   }
 
   buildAudioConstraints() {
+    // Keep the plain path equivalent to getUserMedia({ audio: true }). On
+    // Windows, requesting raw-processing constraints can bypass Equalizer APO.
+    if (!this.noiseReductionEnabled) return true;
+
     const supported = navigator.mediaDevices.getSupportedConstraints?.() || {};
     const audio = {};
     const useSoftwareDenoiser =
@@ -125,8 +129,11 @@
     const [track] = this.inputStream?.getAudioTracks() || [];
     if (!track?.applyConstraints) return;
 
+    const constraints = this.buildAudioConstraints();
+    if (constraints === true) return;
+
     try {
-      await track.applyConstraints(this.buildAudioConstraints());
+      await track.applyConstraints(constraints);
     } catch (error) {
       console.warn("Voice enhancement constraints were partially rejected", error);
     }

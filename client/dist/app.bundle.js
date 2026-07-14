@@ -4477,6 +4477,7 @@ var VoiceManager = class extends EventTarget {
     }
   }
   buildAudioConstraints() {
+    if (!this.noiseReductionEnabled) return true;
     const supported2 = navigator.mediaDevices.getSupportedConstraints?.() || {};
     const audio = {};
     const useSoftwareDenoiser = this.noiseReductionEnabled && this.useRnnoiseEngine?.() && this.rnnoiseStatus !== "failed";
@@ -4493,8 +4494,10 @@ var VoiceManager = class extends EventTarget {
     if (this.syntheticCapture) return;
     const [track2] = this.inputStream?.getAudioTracks() || [];
     if (!track2?.applyConstraints) return;
+    const constraints = this.buildAudioConstraints();
+    if (constraints === true) return;
     try {
-      await track2.applyConstraints(this.buildAudioConstraints());
+      await track2.applyConstraints(constraints);
     } catch (error) {
       console.warn("Voice enhancement constraints were partially rejected", error);
     }

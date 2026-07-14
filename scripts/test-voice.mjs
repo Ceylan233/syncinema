@@ -102,9 +102,11 @@ const plainConstraints = VoiceManager.prototype.buildAudioConstraints.call({
   useRnnoiseEngine: () => true,
   rnnoiseStatus: "off"
 });
-assert.equal(plainConstraints.echoCancellation, true, "plain mode must retain echo cancellation");
-assert.equal(plainConstraints.noiseSuppression, false, "APO mode must not add browser noise suppression");
-assert.equal(plainConstraints.autoGainControl, false, "APO mode must not add browser automatic gain control");
+assert.equal(
+  plainConstraints,
+  true,
+  "plain mode must use the browser's default capture path so system APO processing remains available"
+);
 const denoisedConstraints = VoiceManager.prototype.buildAudioConstraints.call({
   noiseReductionEnabled: true,
   useRnnoiseEngine: () => true,
@@ -113,6 +115,22 @@ const denoisedConstraints = VoiceManager.prototype.buildAudioConstraints.call({
 assert.equal(denoisedConstraints.echoCancellation, true, "denoising mode must enable echo cancellation");
 assert.equal(denoisedConstraints.noiseSuppression, false, "RNNoise mode must avoid double noise suppression");
 assert.equal(denoisedConstraints.autoGainControl, false, "RNNoise mode must avoid double automatic gain control");
+
+let plainApplyCalls = 0;
+await VoiceManager.prototype.applyVoiceEnhancements.call({
+  syntheticCapture: null,
+  inputStream: {
+    getAudioTracks: () => [{
+      applyConstraints: async () => { plainApplyCalls += 1; }
+    }]
+  },
+  buildAudioConstraints: () => true
+});
+assert.equal(
+  plainApplyCalls,
+  0,
+  "plain mode must not reapply constraints after opening the default capture path"
+);
 Object.defineProperty(globalThis.navigator, "mediaDevices", {
   configurable: true,
   value: originalMediaDevices
