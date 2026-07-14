@@ -123,4 +123,11 @@ assert.ok(plainVoiceProfile.makeupGain > 1, "quiet speech must receive makeup ga
 assert.ok(denoisedVoiceProfile.ratio > 2, "keyboard transients must be compressed after denoising");
 assert.ok(denoisedVoiceProfile.makeupGain > 1, "denoised speech must receive makeup gain");
 
+const rawCaptureStream = { id: "raw-microphone" };
+assert.equal(
+  VoiceManager.prototype.webRtcStream.call({}, rawCaptureStream),
+  rawCaptureStream,
+  "WebRTC must use the raw microphone track instead of a suspendable WebAudio destination"
+);
+
 console.log("Voice routing tests passed");

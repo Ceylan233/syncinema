@@ -4277,6 +4277,7 @@ var VoiceManager = class extends EventTarget {
     this.ui = ui2;
     this.stream = null;
     this.inputStream = null;
+    this.processedStream = null;
     this.audioContext = null;
     this.gateGain = null;
     this.inputGain = null;
@@ -4348,7 +4349,8 @@ var VoiceManager = class extends EventTarget {
       });
       this.disconnectProcessingGraph();
       await this.prepareRnnoiseProcessor();
-      this.stream = this.createProcessedStream(this.inputStream);
+      this.processedStream = this.createProcessedStream(this.inputStream);
+      this.stream = this.webRtcStream(this.inputStream);
       await this.resumeCaptureContext();
       await this.applyVoiceEnhancements();
       this.reportVoiceEnhancements();
@@ -4466,7 +4468,8 @@ var VoiceManager = class extends EventTarget {
       video: false
     });
     await this.prepareRnnoiseProcessor();
-    this.stream = this.createProcessedStream(this.inputStream);
+    this.processedStream = this.createProcessedStream(this.inputStream);
+    this.stream = this.webRtcStream(this.inputStream);
     await this.resumeCaptureContext();
     await this.applyVoiceEnhancements();
     this.reportVoiceEnhancements();
@@ -4485,7 +4488,8 @@ var VoiceManager = class extends EventTarget {
     this.disconnectProcessingGraph();
     await this.applyVoiceEnhancements();
     await this.prepareRnnoiseProcessor();
-    this.stream = this.createProcessedStream(this.inputStream);
+    this.processedStream = this.createProcessedStream(this.inputStream);
+    this.stream = this.webRtcStream(this.inputStream);
     await this.resumeCaptureContext();
     this.watchSpeaking();
     if (wasEnabled) {
@@ -4783,6 +4787,9 @@ var VoiceManager = class extends EventTarget {
     this.voiceGain.connect(this.gateGain);
     this.gateGain.connect(destination);
     return destination.stream;
+  }
+  webRtcStream(inputStream) {
+    return inputStream;
   }
   async preloadRnnoiseModule() {
     if (this.rnnoiseModule) return true;

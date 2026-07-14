@@ -5,6 +5,7 @@
     this.ui = ui;
     this.stream = null;
     this.inputStream = null;
+    this.processedStream = null;
     this.audioContext = null;
     this.gateGain = null;
     this.inputGain = null;
@@ -81,7 +82,8 @@
       });
       this.disconnectProcessingGraph();
       await this.prepareRnnoiseProcessor();
-      this.stream = this.createProcessedStream(this.inputStream);
+      this.processedStream = this.createProcessedStream(this.inputStream);
+      this.stream = this.webRtcStream(this.inputStream);
       await this.resumeCaptureContext();
       await this.applyVoiceEnhancements();
       this.reportVoiceEnhancements();
@@ -218,7 +220,8 @@
       video: false
     });
     await this.prepareRnnoiseProcessor();
-    this.stream = this.createProcessedStream(this.inputStream);
+    this.processedStream = this.createProcessedStream(this.inputStream);
+    this.stream = this.webRtcStream(this.inputStream);
     await this.resumeCaptureContext();
     await this.applyVoiceEnhancements();
     this.reportVoiceEnhancements();
@@ -238,7 +241,8 @@
     this.disconnectProcessingGraph();
     await this.applyVoiceEnhancements();
     await this.prepareRnnoiseProcessor();
-    this.stream = this.createProcessedStream(this.inputStream);
+    this.processedStream = this.createProcessedStream(this.inputStream);
+    this.stream = this.webRtcStream(this.inputStream);
     await this.resumeCaptureContext();
     this.watchSpeaking();
     if (wasEnabled) {
@@ -569,6 +573,12 @@
     this.gateGain.connect(destination);
 
     return destination.stream;
+  }
+
+  webRtcStream(inputStream) {
+    // A raw capture track stays live when mobile browsers suspend WebAudio.
+    // Browser echo cancellation, noise suppression and AGC are applied on it.
+    return inputStream;
   }
 
   async preloadRnnoiseModule() {
