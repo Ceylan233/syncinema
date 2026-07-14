@@ -538,7 +538,7 @@ export class UI {
       const removed = this.state.playbackActivities.splice(100);
       removed.forEach((entry) => this.playbackActivityIds.delete(entry.id));
     }
-    if (notify) {
+    if (notify && !["join", "leave"].includes(item.kind)) {
       this.state.activityToast = item.text;
       window.clearTimeout(this.activityToastTimer);
       this.activityToastTimer = window.setTimeout(() => {

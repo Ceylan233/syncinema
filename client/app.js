@@ -890,7 +890,7 @@ function wireUI() {
       await switchToOnlineSource(resolved);
       ui.closeSourceModal();
     } catch (error) {
-      ui.addSystemMessage(error.message || "直链点播失败");
+      ui.setSourceState({ busy: false, status: error.message || "直链点播失败" });
     }
   });
 
@@ -899,7 +899,7 @@ function wireUI() {
     try {
       await sourceManager.search(ui.sourceSearchInput.value);
     } catch (error) {
-      ui.addSystemMessage(error.message || "片源搜索失败");
+      ui.setSourceState({ busy: false, status: error.message || "片源搜索失败" });
     }
   });
 
@@ -912,7 +912,7 @@ function wireUI() {
         url: button.dataset.resultUrl
       });
     } catch (error) {
-      ui.addSystemMessage(error.message || "读取选集失败");
+      ui.setSourceState({ busy: false, status: error.message || "读取选集失败" });
     }
   });
 
@@ -933,7 +933,7 @@ function wireUI() {
       await switchToOnlineSource(resolved);
       ui.closeSourceModal();
     } catch (error) {
-      ui.addSystemMessage(error.message || "点播失败");
+      ui.setSourceState({ busy: false, status: error.message || "点播失败" });
     }
   });
 
