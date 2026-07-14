@@ -256,7 +256,7 @@ export class CinemaPlayer extends EventTarget {
     this.ui.videoFrame.addEventListener("dblclick", (event) => this.handleFrameDoubleClick(event));
     this.ui.videoFrame.addEventListener("mouseleave", () => {
       this.pointerInsideVideoFrame = false;
-      this.scheduleControlsHide();
+      this.scheduleControlsHide(1000);
     });
     const handleFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement || document.webkitFullscreenElement || this.pseudoFullscreen);

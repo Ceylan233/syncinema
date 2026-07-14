@@ -177,6 +177,7 @@ export class UI {
     this.app.mount("#app");
     document.documentElement.dataset.uiFramework = "vue3-componentized";
     this.cacheElements();
+    this.bindVolumePopovers();
     this.bindNameForm();
     this.bindConfirmButtons();
   }
@@ -251,6 +252,65 @@ export class UI {
       "transferPercent"
     ].forEach((id) => {
       this[id] = document.getElementById(id);
+    });
+  }
+
+  bindVolumePopovers() {
+    const closeAll = (except = null) => {
+      document.querySelectorAll("[data-volume-popover]").forEach((popover) => {
+        if (popover === except) return;
+        popover.classList.remove("is-open");
+        popover.querySelector(".volume-trigger")?.setAttribute("aria-expanded", "false");
+      });
+    };
+
+    const bindTrigger = (trigger) => {
+      if (trigger.dataset.volumeBound === "true") return;
+      trigger.dataset.volumeBound = "true";
+      const togglePopover = () => {
+        const popover = trigger.closest("[data-volume-popover]");
+        if (!popover) return;
+        const opening = !popover.classList.contains("is-open");
+        closeAll(opening ? popover : null);
+        popover.classList.toggle("is-open", opening);
+        popover.classList.toggle("is-click-closed", !opening);
+        trigger.setAttribute("aria-expanded", opening ? "true" : "false");
+      };
+      trigger.addEventListener("pointerup", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        togglePopover();
+      });
+      trigger.addEventListener("click", (event) => {
+        if (event.detail !== 0) return;
+        event.stopPropagation();
+        togglePopover();
+      });
+    };
+
+    const bindCurrentTriggers = () => {
+      document.querySelectorAll(".volume-trigger").forEach(bindTrigger);
+    };
+    bindCurrentTriggers();
+    this.volumePopoverObserver = new MutationObserver(bindCurrentTriggers);
+    this.volumePopoverObserver.observe(document.body, { childList: true, subtree: true });
+
+    document.addEventListener("pointerleave", (event) => {
+      const popover = event.target.closest?.("[data-volume-popover]");
+      popover?.classList.remove("is-click-closed");
+    }, true);
+
+    document.addEventListener("focusin", (event) => {
+      const popover = event.target.closest?.("[data-volume-popover]");
+      if (popover) popover.classList.remove("is-click-closed");
+    });
+
+    document.addEventListener("pointerdown", (event) => {
+      if (event.target.closest?.("[data-volume-popover]")) return;
+      closeAll();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeAll();
     });
   }
 

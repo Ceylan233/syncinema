@@ -1,5 +1,8 @@
+import { Microphone } from "@element-plus/icons-vue";
+
 export const TopBar = {
   name: "TopBar",
+  components: { Microphone },
   props: {
     state: { type: Object, required: true }
   },
@@ -55,10 +58,14 @@ export const TopBar = {
           >
             {{ state.noiseEnabled ? '降噪开' : '降噪关' }}
           </button>
-          <label class="top-volume-control" title="麦克风发送音量">
-            <span>输入</span>
-            <input id="micVolume" type="range" min="25" max="200" value="100" />
-          </label>
+          <div class="top-volume-control volume-popover mic-volume-control" data-volume-popover>
+            <button class="volume-trigger" type="button" title="麦克风输入音量" aria-label="麦克风输入音量" aria-expanded="false">
+              <Microphone aria-hidden="true" />
+            </button>
+            <div class="volume-flyout" role="group" aria-label="麦克风输入音量调节">
+              <input id="micVolume" type="range" min="25" max="200" value="100" aria-label="麦克风输入音量" />
+            </div>
+          </div>
         </div>
       </div>
     </header>

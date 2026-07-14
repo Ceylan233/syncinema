@@ -16340,7 +16340,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     this.ui.videoFrame.addEventListener("dblclick", (event) => this.handleFrameDoubleClick(event));
     this.ui.videoFrame.addEventListener("mouseleave", () => {
       this.pointerInsideVideoFrame = false;
-      this.scheduleControlsHide();
+      this.scheduleControlsHide(1e3);
     });
     const handleFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement || document.webkitFullscreenElement || this.pseudoFullscreen);
@@ -18877,220 +18877,6 @@ var MembersPanel = {
         </div>
       </div>
     </aside>
-  `
-};
-
-// client/components/PlayerStage.js?v=20260711-danmaku-settings-3
-var PlayerStage = {
-  name: "PlayerStage",
-  props: {
-    state: { type: Object, required: true }
-  },
-  template: `
-    <section :class="['stage', { 'audit-room': !state.sourceControlsVisible }]">
-      <div class="video-frame" id="videoFrame">
-        <div id="videoSurface" class="video-surface">
-          <video
-            id="video"
-            playsinline
-            webkit-playsinline="true"
-            x5-playsinline="true"
-            x5-video-player-type="h5-page"
-            x5-video-player-fullscreen="true"
-            x5-video-orientation="landscape"
-            preload="auto"
-            controlslist="nodownload noplaybackrate noremoteplayback"
-            disablepictureinpicture
-          ></video>
-        <div
-          id="danmakuLayer"
-          :class="['danmaku-layer', 'area-' + state.danmakuArea]"
-          :style="{ '--danmaku-opacity': state.danmakuOpacity }"
-          aria-hidden="true"
-        ></div>
-        <div :class="['now-playing', { hidden: !state.nowPlayingTitle }]">
-          <span>正在播放</span>
-          <strong>{{ state.nowPlayingTitle }}</strong>
-        </div>
-        <div :class="['pause-center', { hidden: !state.nowPlayingTitle || !state.playbackPaused || state.emptyVisible }]">
-          <span aria-hidden="true"></span>
-        </div>
-        <div id="seekFeedback" class="seek-feedback hidden"></div>
-        <div id="syncOverlay" :class="['sync-overlay', { hidden: !state.syncing }]">
-          {{ state.syncText }}
-        </div>
-        <div :class="['playback-activity-toast', { hidden: !state.activityToast }]">
-          {{ state.activityToast }}
-        </div>
-        <div id="emptyState" :class="['empty-state', { hidden: !state.emptyVisible }]">
-          <div v-if="state.sourceControlsVisible" class="empty-card">
-            <p>选择本地视频，或从你导入的片源点播。切换后全房间会同步到新片源。</p>
-            <label class="primary-button file-button" for="fileInput">选择视频</label>
-            <button id="emptyOnlineSourceButton" class="secondary-button source-button" type="button">点播片源</button>
-          </div>
-        </div>
-        </div>
-        <div class="controls">
-          <div class="danmaku-control-group">
-          <button
-            id="danmakuToggleButton"
-            :class="['icon-button', 'danmaku-toggle', { active: state.danmakuEnabled }]"
-            type="button"
-            :title="state.danmakuEnabled ? '关闭弹幕' : '开启弹幕'"
-            :aria-pressed="state.danmakuEnabled"
-          >弹</button>
-          <button
-            id="danmakuSettingsButton"
-            class="icon-button danmaku-settings-toggle"
-            type="button"
-            title="弹幕设置"
-            aria-label="弹幕设置"
-            :aria-expanded="state.danmakuSettingsVisible"
-          >弹幕设置</button>
-          <div
-            id="danmakuSettingsMenu"
-            :class="['danmaku-settings-menu', { hidden: !state.danmakuSettingsVisible }]"
-          >
-            <div class="danmaku-setting-row">
-              <span>显示区域</span>
-              <div class="danmaku-area-options" role="group" aria-label="弹幕显示区域">
-                <button type="button" data-danmaku-area="full" :class="{ active: state.danmakuArea === 'full' }">全屏</button>
-                <button type="button" data-danmaku-area="half" :class="{ active: state.danmakuArea === 'half' }">1/2</button>
-                <button type="button" data-danmaku-area="quarter" :class="{ active: state.danmakuArea === 'quarter' }">1/4</button>
-              </div>
-            </div>
-            <label class="danmaku-setting-row danmaku-opacity-control">
-              <span>透明度</span>
-              <input id="danmakuOpacity" type="range" min="20" max="100" step="5" :value="Math.round(state.danmakuOpacity * 100)" />
-              <output>{{ Math.round(state.danmakuOpacity * 100) }}%</output>
-            </label>
-          </div>
-          </div>
-          <button id="playButton" class="icon-button play-toggle" title="播放/暂停">播放</button>
-          <template v-if="state.sourceControlsVisible">
-            <label id="chooseVideoButton" class="icon-button file-action" for="fileInput" role="button" tabindex="0" title="重新选择视频">片源</label>
-            <button id="onlineSourceButton" class="icon-button source-action" type="button" title="网络点播">点播</button>
-          </template>
-          <div class="progress-wrap">
-            <div id="seekPreview" class="seek-preview hidden">00:00</div>
-            <div id="seekBufferBar" class="seek-buffer-bar" aria-hidden="true"></div>
-            <input id="seekBar" type="range" min="0" max="1000" value="0" />
-            <div class="time-row">
-              <span id="currentTime">00:00</span>
-              <span id="duration">00:00</span>
-            </div>
-          </div>
-          <select id="rateSelect" title="播放速度">
-            <option value="0.5">0.5x</option>
-            <option value="0.75">0.75x</option>
-            <option value="1" selected>1x</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2">2x</option>
-          </select>
-          <select id="fitSelect" title="画面比例">
-            <option value="contain" selected>适应</option>
-            <option value="ratio-16-9">16:9</option>
-            <option value="ratio-4-3">4:3</option>
-            <option value="fill">拉伸铺满</option>
-          </select>
-          <select id="qualitySelect" title="画质" :disabled="state.quality.disabled">
-            <option
-              v-for="option in state.quality.options"
-              :key="option.value"
-              :value="option.value"
-            >
-              {{ option.label }}
-            </option>
-          </select>
-          <label class="volume-control video-volume-control" title="视频声音">
-            <span>视频</span>
-            <input id="videoVolume" type="range" min="0" max="100" value="100" />
-          </label>
-          <label v-if="state.voiceControlsVisible" class="volume-control voice-volume-control" title="语音声音">
-            <span>语音</span>
-            <input id="voiceVolume" type="range" min="0" max="100" value="100" />
-          </label>
-          <button id="fullscreenButton" class="icon-button fullscreen-toggle" title="全屏" aria-label="全屏">
-            <span class="fullscreen-icon" aria-hidden="true"></span>
-          </button>
-        </div>
-      </div>
-      <div id="transferPanel" :class="['transfer-panel', { hidden: !state.transferVisible }]">
-        <span id="transferTitle">{{ state.transferTitle }}</span>
-        <progress id="transferProgress" :value="state.transferPercent" max="100"></progress>
-        <span id="transferPercent">{{ state.transferPercent }}%</span>
-      </div>
-      <input v-if="state.sourceControlsVisible" id="fileInput" class="file-picker" type="file" accept="video/*" />
-    </section>
-  `
-};
-
-// client/components/TopBar.js?v=20260711-room-dom-1
-var TopBar = {
-  name: "TopBar",
-  props: {
-    state: { type: Object, required: true }
-  },
-  template: `
-    <header class="topbar">
-      <div class="topbar-main">
-        <div class="brand">
-          <div>
-            <strong>Syncinema</strong>
-            <span>同映</span>
-          </div>
-        </div>
-
-        <div class="room-summary" aria-label="房间状态">
-          <span id="connectionBadge" :class="['status-badge', 'status-' + state.connectionTone]">
-            {{ state.connectionText }}
-          </span>
-          <span v-if="state.roomId !== '1'" id="roomBadge" class="status-badge room-badge" :title="'当前房间：' + state.roomId">
-            房间 {{ state.roomId }}
-          </span>
-          <a
-            id="speedTestButton"
-            class="status-badge speed-test-link"
-            href="/speed-test.html"
-            target="_blank"
-            rel="noopener"
-            title="打开测速页"
-          >
-            测速
-          </a>
-          <span id="memberCount" class="status-badge member-count">{{ state.users.length }} 人在线</span>
-        </div>
-      </div>
-
-      <div v-if="state.voiceControlsVisible" class="status-line">
-        <span id="voiceBadge" :class="['status-badge', 'voice-pill', state.voiceTone ? 'status-' + state.voiceTone : '']">
-          {{ state.voiceText }}
-        </span>
-        <div class="voice-control-cluster">
-          <button
-            id="micToggleButton"
-            :class="['status-badge', 'mic-toggle', { 'is-off': !state.micEnabled }]"
-            :disabled="state.micBusy"
-            type="button"
-          >
-            {{ state.micText || (state.micEnabled ? '麦克风开' : '麦克风关') }}
-          </button>
-          <button
-            id="noiseToggleButton"
-            :class="['status-badge', 'noise-toggle', { 'is-off': !state.noiseEnabled }]"
-            :disabled="state.noiseBusy"
-            type="button"
-          >
-            {{ state.noiseEnabled ? '降噪开' : '降噪关' }}
-          </button>
-          <label class="top-volume-control" title="麦克风发送音量">
-            <span>输入</span>
-            <input id="micVolume" type="range" min="25" max="200" value="100" />
-          </label>
-        </div>
-      </div>
-    </header>
   `
 };
 
@@ -32243,6 +32029,294 @@ var initDirectivesForSSR = () => {
   }
 };
 
+// node_modules/vue/dist/vue.runtime.esm-bundler.js
+function initDev() {
+  {
+    initCustomFormatter();
+  }
+}
+if (true) {
+  initDev();
+}
+
+// node_modules/@element-plus/icons-vue/dist/index.js
+var _sfc_main130 = /* @__PURE__ */ defineComponent({
+  name: "Headset",
+  __name: "headset",
+  setup(__props) {
+    return (_ctx, _cache) => (openBlock(), createElementBlock("svg", {
+      xmlns: "http://www.w3.org/2000/svg",
+      viewBox: "0 0 1024 1024"
+    }, [
+      createBaseVNode("path", {
+        fill: "currentColor",
+        d: "M896 529.152V512a384 384 0 1 0-768 0v17.152A128 128 0 0 1 320 640v128a128 128 0 1 1-256 0V512a448 448 0 1 1 896 0v256a128 128 0 1 1-256 0V640a128 128 0 0 1 192-110.848M896 640a64 64 0 0 0-128 0v128a64 64 0 0 0 128 0zm-768 0v128a64 64 0 0 0 128 0V640a64 64 0 1 0-128 0"
+      })
+    ]));
+  }
+});
+var headset_default = _sfc_main130;
+var _sfc_main167 = /* @__PURE__ */ defineComponent({
+  name: "Microphone",
+  __name: "microphone",
+  setup(__props) {
+    return (_ctx, _cache) => (openBlock(), createElementBlock("svg", {
+      xmlns: "http://www.w3.org/2000/svg",
+      viewBox: "0 0 1024 1024"
+    }, [
+      createBaseVNode("path", {
+        fill: "currentColor",
+        d: "M512 128a128 128 0 0 0-128 128v256a128 128 0 1 0 256 0V256a128 128 0 0 0-128-128m0-64a192 192 0 0 1 192 192v256a192 192 0 1 1-384 0V256A192 192 0 0 1 512 64m-32 832v-64a288 288 0 0 1-288-288v-32a32 32 0 0 1 64 0v32a224 224 0 0 0 224 224h64a224 224 0 0 0 224-224v-32a32 32 0 1 1 64 0v32a288 288 0 0 1-288 288v64h64a32 32 0 1 1 0 64H416a32 32 0 1 1 0-64z"
+      })
+    ]));
+  }
+});
+var microphone_default = _sfc_main167;
+var _sfc_main280 = /* @__PURE__ */ defineComponent({
+  name: "VideoCamera",
+  __name: "video-camera",
+  setup(__props) {
+    return (_ctx, _cache) => (openBlock(), createElementBlock("svg", {
+      xmlns: "http://www.w3.org/2000/svg",
+      viewBox: "0 0 1024 1024"
+    }, [
+      createBaseVNode("path", {
+        fill: "currentColor",
+        d: "M704 768V256H128v512zm64-416 192-96v512l-192-96v128a32 32 0 0 1-32 32H96a32 32 0 0 1-32-32V224a32 32 0 0 1 32-32h640a32 32 0 0 1 32 32zm0 71.552v176.896l128 64V359.552zM192 320h192v64H192z"
+      })
+    ]));
+  }
+});
+var video_camera_default = _sfc_main280;
+
+// client/components/PlayerStage.js?v=20260711-danmaku-settings-3
+var PlayerStage = {
+  name: "PlayerStage",
+  components: { Headset: headset_default, VideoCamera: video_camera_default },
+  props: {
+    state: { type: Object, required: true }
+  },
+  template: `
+    <section :class="['stage', { 'audit-room': !state.sourceControlsVisible }]">
+      <div class="video-frame" id="videoFrame">
+        <div id="videoSurface" class="video-surface">
+          <video
+            id="video"
+            playsinline
+            webkit-playsinline="true"
+            x5-playsinline="true"
+            x5-video-player-type="h5-page"
+            x5-video-player-fullscreen="true"
+            x5-video-orientation="landscape"
+            preload="auto"
+            controlslist="nodownload noplaybackrate noremoteplayback"
+            disablepictureinpicture
+          ></video>
+        <div
+          id="danmakuLayer"
+          :class="['danmaku-layer', 'area-' + state.danmakuArea]"
+          :style="{ '--danmaku-opacity': state.danmakuOpacity }"
+          aria-hidden="true"
+        ></div>
+        <div :class="['now-playing', { hidden: !state.nowPlayingTitle }]">
+          <span>正在播放</span>
+          <strong>{{ state.nowPlayingTitle }}</strong>
+        </div>
+        <div :class="['pause-center', { hidden: !state.nowPlayingTitle || !state.playbackPaused || state.emptyVisible }]">
+          <span aria-hidden="true"></span>
+        </div>
+        <div id="seekFeedback" class="seek-feedback hidden"></div>
+        <div id="syncOverlay" :class="['sync-overlay', { hidden: !state.syncing }]">
+          {{ state.syncText }}
+        </div>
+        <div :class="['playback-activity-toast', { hidden: !state.activityToast }]">
+          {{ state.activityToast }}
+        </div>
+        <div id="emptyState" :class="['empty-state', { hidden: !state.emptyVisible }]">
+          <div v-if="state.sourceControlsVisible" class="empty-card">
+            <p>选择本地视频，或从你导入的片源点播。切换后全房间会同步到新片源。</p>
+            <label class="primary-button file-button" for="fileInput">选择视频</label>
+            <button id="emptyOnlineSourceButton" class="secondary-button source-button" type="button">点播片源</button>
+          </div>
+        </div>
+        </div>
+        <div class="controls">
+          <div class="danmaku-control-group">
+          <button
+            id="danmakuToggleButton"
+            :class="['icon-button', 'danmaku-toggle', { active: state.danmakuEnabled }]"
+            type="button"
+            :title="state.danmakuEnabled ? '关闭弹幕' : '开启弹幕'"
+            :aria-pressed="state.danmakuEnabled"
+          >弹</button>
+          <button
+            id="danmakuSettingsButton"
+            class="icon-button danmaku-settings-toggle"
+            type="button"
+            title="弹幕设置"
+            aria-label="弹幕设置"
+            :aria-expanded="state.danmakuSettingsVisible"
+          >弹幕设置</button>
+          <div
+            id="danmakuSettingsMenu"
+            :class="['danmaku-settings-menu', { hidden: !state.danmakuSettingsVisible }]"
+          >
+            <div class="danmaku-setting-row">
+              <span>显示区域</span>
+              <div class="danmaku-area-options" role="group" aria-label="弹幕显示区域">
+                <button type="button" data-danmaku-area="full" :class="{ active: state.danmakuArea === 'full' }">全屏</button>
+                <button type="button" data-danmaku-area="half" :class="{ active: state.danmakuArea === 'half' }">1/2</button>
+                <button type="button" data-danmaku-area="quarter" :class="{ active: state.danmakuArea === 'quarter' }">1/4</button>
+              </div>
+            </div>
+            <label class="danmaku-setting-row danmaku-opacity-control">
+              <span>透明度</span>
+              <input id="danmakuOpacity" type="range" min="20" max="100" step="5" :value="Math.round(state.danmakuOpacity * 100)" />
+              <output>{{ Math.round(state.danmakuOpacity * 100) }}%</output>
+            </label>
+          </div>
+          </div>
+          <button id="playButton" class="icon-button play-toggle" title="播放/暂停">播放</button>
+          <template v-if="state.sourceControlsVisible">
+            <label id="chooseVideoButton" class="icon-button file-action" for="fileInput" role="button" tabindex="0" title="重新选择视频">上传</label>
+            <button id="onlineSourceButton" class="icon-button source-action" type="button" title="网络点播">点播</button>
+          </template>
+          <div class="progress-wrap">
+            <div id="seekPreview" class="seek-preview hidden">00:00</div>
+            <div id="seekBufferBar" class="seek-buffer-bar" aria-hidden="true"></div>
+            <input id="seekBar" type="range" min="0" max="1000" value="0" />
+            <div class="time-row">
+              <span id="currentTime">00:00</span>
+              <span id="duration">00:00</span>
+            </div>
+          </div>
+          <select id="rateSelect" title="播放速度">
+            <option value="0.5">0.5x</option>
+            <option value="0.75">0.75x</option>
+            <option value="1" selected>1x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2x</option>
+          </select>
+          <select id="fitSelect" title="画面比例">
+            <option value="contain" selected>适应</option>
+            <option value="ratio-16-9">16:9</option>
+            <option value="ratio-4-3">4:3</option>
+            <option value="fill">拉伸铺满</option>
+          </select>
+          <select id="qualitySelect" title="画质" :disabled="state.quality.disabled">
+            <option
+              v-for="option in state.quality.options"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+          <div class="volume-control volume-popover video-volume-control" data-volume-popover>
+            <button class="volume-trigger" type="button" title="视频音量" aria-label="视频音量" aria-expanded="false">
+              <VideoCamera aria-hidden="true" />
+            </button>
+            <div class="volume-flyout" role="group" aria-label="视频音量调节">
+              <input id="videoVolume" type="range" min="0" max="100" value="100" aria-label="视频音量" />
+            </div>
+          </div>
+          <div v-if="state.voiceControlsVisible" class="volume-control volume-popover voice-volume-control" data-volume-popover>
+            <button class="volume-trigger" type="button" title="语音音量" aria-label="语音音量" aria-expanded="false">
+              <Headset aria-hidden="true" />
+            </button>
+            <div class="volume-flyout" role="group" aria-label="语音音量调节">
+              <input id="voiceVolume" type="range" min="0" max="100" value="100" aria-label="语音音量" />
+            </div>
+          </div>
+          <button id="fullscreenButton" class="icon-button fullscreen-toggle" title="全屏" aria-label="全屏">
+            <span class="fullscreen-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+      <div id="transferPanel" :class="['transfer-panel', { hidden: !state.transferVisible }]">
+        <span id="transferTitle">{{ state.transferTitle }}</span>
+        <progress id="transferProgress" :value="state.transferPercent" max="100"></progress>
+        <span id="transferPercent">{{ state.transferPercent }}%</span>
+      </div>
+      <input v-if="state.sourceControlsVisible" id="fileInput" class="file-picker" type="file" accept="video/*" />
+    </section>
+  `
+};
+
+// client/components/TopBar.js?v=20260711-room-dom-1
+var TopBar = {
+  name: "TopBar",
+  components: { Microphone: microphone_default },
+  props: {
+    state: { type: Object, required: true }
+  },
+  template: `
+    <header class="topbar">
+      <div class="topbar-main">
+        <div class="brand">
+          <div>
+            <strong>Syncinema</strong>
+            <span>同映</span>
+          </div>
+        </div>
+
+        <div class="room-summary" aria-label="房间状态">
+          <span id="connectionBadge" :class="['status-badge', 'status-' + state.connectionTone]">
+            {{ state.connectionText }}
+          </span>
+          <span v-if="state.roomId !== '1'" id="roomBadge" class="status-badge room-badge" :title="'当前房间：' + state.roomId">
+            房间 {{ state.roomId }}
+          </span>
+          <a
+            id="speedTestButton"
+            class="status-badge speed-test-link"
+            href="/speed-test.html"
+            target="_blank"
+            rel="noopener"
+            title="打开测速页"
+          >
+            测速
+          </a>
+          <span id="memberCount" class="status-badge member-count">{{ state.users.length }} 人在线</span>
+        </div>
+      </div>
+
+      <div v-if="state.voiceControlsVisible" class="status-line">
+        <span id="voiceBadge" :class="['status-badge', 'voice-pill', state.voiceTone ? 'status-' + state.voiceTone : '']">
+          {{ state.voiceText }}
+        </span>
+        <div class="voice-control-cluster">
+          <button
+            id="micToggleButton"
+            :class="['status-badge', 'mic-toggle', { 'is-off': !state.micEnabled }]"
+            :disabled="state.micBusy"
+            type="button"
+          >
+            {{ state.micText || (state.micEnabled ? '麦克风开' : '麦克风关') }}
+          </button>
+          <button
+            id="noiseToggleButton"
+            :class="['status-badge', 'noise-toggle', { 'is-off': !state.noiseEnabled }]"
+            :disabled="state.noiseBusy"
+            type="button"
+          >
+            {{ state.noiseEnabled ? '降噪开' : '降噪关' }}
+          </button>
+          <div class="top-volume-control volume-popover mic-volume-control" data-volume-popover>
+            <button class="volume-trigger" type="button" title="麦克风输入音量" aria-label="麦克风输入音量" aria-expanded="false">
+              <Microphone aria-hidden="true" />
+            </button>
+            <div class="volume-flyout" role="group" aria-label="麦克风输入音量调节">
+              <input id="micVolume" type="range" min="25" max="200" value="100" aria-label="麦克风输入音量" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  `
+};
+
 // node_modules/@vue/compiler-core/dist/compiler-core.esm-bundler.js
 var FRAGMENT = /* @__PURE__ */ Symbol(true ? `Fragment` : ``);
 var TELEPORT = /* @__PURE__ */ Symbol(true ? `Teleport` : ``);
@@ -38198,13 +38272,13 @@ function compile2(src, options = {}) {
 }
 
 // node_modules/vue/dist/vue.esm-bundler.js
-function initDev() {
+function initDev2() {
   {
     initCustomFormatter();
   }
 }
 if (true) {
-  initDev();
+  initDev2();
 }
 var compileCache = /* @__PURE__ */ Object.create(null);
 function compileToFunction(template, options) {
@@ -38417,6 +38491,7 @@ var UI = class {
     this.app.mount("#app");
     document.documentElement.dataset.uiFramework = "vue3-componentized";
     this.cacheElements();
+    this.bindVolumePopovers();
     this.bindNameForm();
     this.bindConfirmButtons();
   }
@@ -38490,6 +38565,59 @@ var UI = class {
       "transferPercent"
     ].forEach((id4) => {
       this[id4] = document.getElementById(id4);
+    });
+  }
+  bindVolumePopovers() {
+    const closeAll = (except = null) => {
+      document.querySelectorAll("[data-volume-popover]").forEach((popover) => {
+        if (popover === except) return;
+        popover.classList.remove("is-open");
+        popover.querySelector(".volume-trigger")?.setAttribute("aria-expanded", "false");
+      });
+    };
+    const bindTrigger = (trigger2) => {
+      if (trigger2.dataset.volumeBound === "true") return;
+      trigger2.dataset.volumeBound = "true";
+      const togglePopover = () => {
+        const popover = trigger2.closest("[data-volume-popover]");
+        if (!popover) return;
+        const opening = !popover.classList.contains("is-open");
+        closeAll(opening ? popover : null);
+        popover.classList.toggle("is-open", opening);
+        popover.classList.toggle("is-click-closed", !opening);
+        trigger2.setAttribute("aria-expanded", opening ? "true" : "false");
+      };
+      trigger2.addEventListener("pointerup", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        togglePopover();
+      });
+      trigger2.addEventListener("click", (event) => {
+        if (event.detail !== 0) return;
+        event.stopPropagation();
+        togglePopover();
+      });
+    };
+    const bindCurrentTriggers = () => {
+      document.querySelectorAll(".volume-trigger").forEach(bindTrigger);
+    };
+    bindCurrentTriggers();
+    this.volumePopoverObserver = new MutationObserver(bindCurrentTriggers);
+    this.volumePopoverObserver.observe(document.body, { childList: true, subtree: true });
+    document.addEventListener("pointerleave", (event) => {
+      const popover = event.target.closest?.("[data-volume-popover]");
+      popover?.classList.remove("is-click-closed");
+    }, true);
+    document.addEventListener("focusin", (event) => {
+      const popover = event.target.closest?.("[data-volume-popover]");
+      if (popover) popover.classList.remove("is-click-closed");
+    });
+    document.addEventListener("pointerdown", (event) => {
+      if (event.target.closest?.("[data-volume-popover]")) return;
+      closeAll();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeAll();
     });
   }
   togglePanel(panel) {
@@ -40711,6 +40839,17 @@ boot();
   * @license MIT
   **)
 
+vue/dist/vue.runtime.esm-bundler.js:
+vue/dist/vue.esm-bundler.js:
+  (**
+  * vue v3.5.39
+  * (c) 2018-present Yuxi (Evan) You and Vue contributors
+  * @license MIT
+  **)
+
+@element-plus/icons-vue/dist/index.js:
+  (*! Element Plus Icons Vue v2.3.2 *)
+
 @vue/compiler-core/dist/compiler-core.esm-bundler.js:
   (**
   * @vue/compiler-core v3.5.39
@@ -40721,13 +40860,6 @@ boot();
 @vue/compiler-dom/dist/compiler-dom.esm-bundler.js:
   (**
   * @vue/compiler-dom v3.5.39
-  * (c) 2018-present Yuxi (Evan) You and Vue contributors
-  * @license MIT
-  **)
-
-vue/dist/vue.esm-bundler.js:
-  (**
-  * vue v3.5.39
   * (c) 2018-present Yuxi (Evan) You and Vue contributors
   * @license MIT
   **)

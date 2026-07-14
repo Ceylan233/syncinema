@@ -14,6 +14,7 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+
 * {
   box-sizing: border-box;
 }
@@ -5325,5 +5326,293 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
     content: "设置" !important;
     font-size: 12px !important;
     line-height: 1 !important;
+  }
+}
+
+/* Compact volume buttons: one consistent vertical slider for every viewport. */
+.volume-popover,
+.controls .volume-popover,
+.voice-control-cluster .volume-popover,
+.top-volume-control.volume-popover {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+}
+
+.volume-trigger {
+  display: inline-grid !important;
+  place-items: center !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 7px !important;
+  background: rgba(18, 21, 28, 0.9) !important;
+  color: rgba(241, 245, 249, 0.84) !important;
+  box-shadow: none !important;
+  line-height: 1 !important;
+}
+
+.volume-trigger:hover,
+.volume-trigger:focus-visible,
+.volume-popover.is-open .volume-trigger {
+  border-color: rgba(103, 215, 255, 0.5) !important;
+  background: rgba(103, 215, 255, 0.14) !important;
+  color: #f8fbff !important;
+  outline: none !important;
+}
+
+.volume-trigger svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.volume-flyout {
+  position: absolute !important;
+  z-index: 80 !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: calc(100% + 8px) !important;
+  left: 50% !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  height: 136px !important;
+  min-height: 136px !important;
+  max-height: 136px !important;
+  margin: 0 !important;
+  padding: 12px 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 8px !important;
+  background: rgba(12, 14, 19, 0.98) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4) !important;
+  box-sizing: border-box !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transform: translate(-50%, 6px) !important;
+  transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms !important;
+}
+
+.top-volume-control.volume-popover .volume-flyout {
+  top: calc(100% + 8px) !important;
+  right: 0 !important;
+  bottom: auto !important;
+  left: auto !important;
+  transform: translateY(-6px) !important;
+}
+
+.volume-popover:hover .volume-flyout,
+.volume-popover:focus-within .volume-flyout,
+.volume-popover.is-open .volume-flyout {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translate(-50%, 0) !important;
+  transition-delay: 0s !important;
+}
+
+.top-volume-control.volume-popover:hover .volume-flyout,
+.top-volume-control.volume-popover:focus-within .volume-flyout,
+.top-volume-control.volume-popover.is-open .volume-flyout {
+  transform: translateY(0) !important;
+}
+
+.volume-popover.is-click-closed:hover .volume-flyout {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.volume-flyout input[type="range"],
+.controls .volume-popover .volume-flyout input[type="range"],
+.voice-control-cluster .volume-popover .volume-flyout input[type="range"] {
+  position: static !important;
+  display: block !important;
+  width: 20px !important;
+  min-width: 20px !important;
+  max-width: 20px !important;
+  height: 112px !important;
+  min-height: 112px !important;
+  max-height: 112px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  accent-color: var(--accent-2) !important;
+  appearance: slider-vertical !important;
+  -webkit-appearance: slider-vertical !important;
+  writing-mode: vertical-lr !important;
+  direction: rtl !important;
+  transform: none !important;
+}
+
+.top-volume-control.volume-popover .volume-flyout input[type="range"] {
+  width: 20px !important;
+  min-width: 20px !important;
+  height: 112px !important;
+  min-height: 112px !important;
+}
+
+/* Keep the player controls compact while reserving fixed cells for the buttons. */
+@media (min-width: 861px) {
+  .video-frame .controls {
+    grid-template-columns: auto auto auto minmax(0, 1fr) 72px 86px 86px 34px 34px auto !important;
+    grid-template-areas:
+      "progress progress progress progress progress progress progress progress progress progress progress"
+      "play choose source danmaku . rate fit quality video-volume voice-volume fullscreen" !important;
+    overflow: visible !important;
+  }
+
+  .video-frame .controls .volume-popover,
+  .video-frame:fullscreen .controls .volume-popover,
+  .video-frame:-webkit-full-screen .controls .volume-popover,
+  .video-frame.pseudo-fullscreen .controls .volume-popover {
+    display: inline-flex !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+  }
+
+  .video-frame:fullscreen .controls,
+  .video-frame:-webkit-full-screen .controls,
+  .video-frame.pseudo-fullscreen .controls {
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+    grid-template-areas:
+      "progress progress progress progress progress progress progress progress progress progress progress progress"
+      "play choose source danmaku danmaku rate fit quality video-volume voice-volume fullscreen fullscreen" !important;
+    overflow: visible !important;
+  }
+}
+
+@container (max-width: 980px) {
+  @media (min-width: 861px) {
+    .video-frame .controls {
+      grid-template-columns: repeat(11, minmax(0, 1fr)) !important;
+      grid-template-areas:
+        "progress progress progress progress progress progress progress progress progress progress progress"
+        "play choose source danmaku danmaku rate fit quality video-volume voice-volume fullscreen" !important;
+      gap: 6px !important;
+      padding-inline: 10px !important;
+    }
+
+    .video-frame .controls .volume-popover {
+      justify-self: center !important;
+    }
+  }
+}
+
+@media (max-width: 860px) {
+  .video-frame:not(:fullscreen):not(:-webkit-full-screen) .controls {
+    display: grid !important;
+    grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+    grid-template-rows: auto 34px 34px !important;
+    grid-template-areas:
+      "progress progress progress progress progress progress progress progress"
+      "play play choose choose source source fullscreen fullscreen"
+      "danmaku danmaku rate fit quality . video-volume voice-volume" !important;
+    min-height: 118px !important;
+    gap: 6px !important;
+    padding: 8px max(8px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right)) !important;
+    overflow: visible !important;
+  }
+
+  .video-frame:not(:fullscreen):not(:-webkit-full-screen) .controls .volume-popover {
+    justify-self: center !important;
+    align-self: center !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+  }
+
+  .video-frame:not(:fullscreen):not(:-webkit-full-screen) .controls #rateSelect,
+  .video-frame:not(:fullscreen):not(:-webkit-full-screen) .controls #fitSelect,
+  .video-frame:not(:fullscreen):not(:-webkit-full-screen) .controls #qualitySelect {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 34px !important;
+    margin: 0 !important;
+    padding-inline: 3px !important;
+  }
+
+  .video-frame:fullscreen .controls,
+  .video-frame:-webkit-full-screen .controls,
+  .video-frame.pseudo-fullscreen .controls,
+  body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-rows: 28px 34px 34px 34px !important;
+    grid-template-areas:
+      "progress progress progress progress"
+      "play choose source fullscreen"
+      "danmaku danmaku rate quality"
+      "fit video-volume voice-volume ." !important;
+    min-height: 156px !important;
+    max-height: none !important;
+    gap: 6px !important;
+    padding: 26px max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)) !important;
+    overflow: visible !important;
+  }
+
+  .video-frame:fullscreen .controls .volume-popover,
+  .video-frame:-webkit-full-screen .controls .volume-popover,
+  .video-frame.pseudo-fullscreen .controls .volume-popover,
+  body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls .volume-popover {
+    display: inline-flex !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  .video-frame:fullscreen .controls > *,
+  .video-frame:-webkit-full-screen .controls > *,
+  .video-frame.pseudo-fullscreen .controls > *,
+  body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls > * {
+    min-height: 34px !important;
+  }
+}
+
+@media (max-width: 860px) and (orientation: landscape) {
+  .video-frame:fullscreen .controls,
+  .video-frame:-webkit-full-screen .controls,
+  .video-frame.pseudo-fullscreen .controls,
+  body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    grid-template-rows: 26px 32px 32px !important;
+    grid-template-areas:
+      "progress progress progress progress progress progress"
+      "play choose source fullscreen danmaku danmaku"
+      "rate fit quality video-volume voice-volume ." !important;
+    min-height: 104px !important;
+    padding-top: 20px !important;
+    gap: 5px !important;
   }
 }

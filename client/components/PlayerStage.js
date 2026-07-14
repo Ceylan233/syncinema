@@ -1,5 +1,8 @@
+import { Headset, VideoCamera } from "@element-plus/icons-vue";
+
 export const PlayerStage = {
   name: "PlayerStage",
+  components: { Headset, VideoCamera },
   props: {
     state: { type: Object, required: true }
   },
@@ -85,7 +88,7 @@ export const PlayerStage = {
           </div>
           <button id="playButton" class="icon-button play-toggle" title="播放/暂停">播放</button>
           <template v-if="state.sourceControlsVisible">
-            <label id="chooseVideoButton" class="icon-button file-action" for="fileInput" role="button" tabindex="0" title="重新选择视频">片源</label>
+            <label id="chooseVideoButton" class="icon-button file-action" for="fileInput" role="button" tabindex="0" title="重新选择视频">上传</label>
             <button id="onlineSourceButton" class="icon-button source-action" type="button" title="网络点播">点播</button>
           </template>
           <div class="progress-wrap">
@@ -120,14 +123,22 @@ export const PlayerStage = {
               {{ option.label }}
             </option>
           </select>
-          <label class="volume-control video-volume-control" title="视频声音">
-            <span>视频</span>
-            <input id="videoVolume" type="range" min="0" max="100" value="100" />
-          </label>
-          <label v-if="state.voiceControlsVisible" class="volume-control voice-volume-control" title="语音声音">
-            <span>语音</span>
-            <input id="voiceVolume" type="range" min="0" max="100" value="100" />
-          </label>
+          <div class="volume-control volume-popover video-volume-control" data-volume-popover>
+            <button class="volume-trigger" type="button" title="视频音量" aria-label="视频音量" aria-expanded="false">
+              <VideoCamera aria-hidden="true" />
+            </button>
+            <div class="volume-flyout" role="group" aria-label="视频音量调节">
+              <input id="videoVolume" type="range" min="0" max="100" value="100" aria-label="视频音量" />
+            </div>
+          </div>
+          <div v-if="state.voiceControlsVisible" class="volume-control volume-popover voice-volume-control" data-volume-popover>
+            <button class="volume-trigger" type="button" title="语音音量" aria-label="语音音量" aria-expanded="false">
+              <Headset aria-hidden="true" />
+            </button>
+            <div class="volume-flyout" role="group" aria-label="语音音量调节">
+              <input id="voiceVolume" type="range" min="0" max="100" value="100" aria-label="语音音量" />
+            </div>
+          </div>
           <button id="fullscreenButton" class="icon-button fullscreen-toggle" title="全屏" aria-label="全屏">
             <span class="fullscreen-icon" aria-hidden="true"></span>
           </button>
