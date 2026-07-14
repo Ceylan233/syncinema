@@ -55,19 +55,6 @@ export const TopBar = {
           >
             {{ state.noiseEnabled ? '降噪开' : '降噪关' }}
           </button>
-          <select
-            id="micDeviceSelect"
-            class="mic-device-select"
-            :value="state.micDeviceId"
-            :disabled="state.micBusy"
-            title="选择麦克风输入设备"
-            aria-label="麦克风设备"
-          >
-            <option value="">{{ state.micDefaultLabel }}</option>
-            <option v-for="device in state.micDevices" :key="device.deviceId" :value="device.deviceId">
-              {{ device.label }}
-            </option>
-          </select>
           <label class="top-volume-control" title="麦克风发送音量">
             <span>输入</span>
             <input id="micVolume" type="range" min="25" max="200" value="100" />

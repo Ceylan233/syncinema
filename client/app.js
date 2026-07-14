@@ -105,7 +105,6 @@ async function boot() {
   wireSocket();
   wireWebRTC();
   wireUI();
-  voice.refreshInputDevices().catch(() => {});
   sync.start();
   window.setInterval(() => announceLocalSource({ broadcast: false }), 2000);
   window.setInterval(() => pollAuthoritativeVideo(), 800);
@@ -1069,20 +1068,6 @@ function wireUI() {
       await voice.unlockPlayback();
     } catch {
       // VoiceManager has already shown the permission state.
-    } finally {
-      ui.setMicControl({ enabled: voice.enabled });
-      updateVoiceConnectionStatus();
-    }
-  });
-
-  ui.micDeviceSelect?.addEventListener("change", async (event) => {
-    ui.setMicControl({ enabled: voice.enabled, busy: true, text: "切换中" });
-    try {
-      const stream = await voice.setInputDevice(event.target.value);
-      await mesh.setLocalStream(voice.enabled ? stream : null);
-    } catch {
-      ui.addSystemMessage("麦克风切换失败，请确认设备没有被其他程序独占。");
-      await voice.refreshInputDevices().catch(() => {});
     } finally {
       ui.setMicControl({ enabled: voice.enabled });
       updateVoiceConnectionStatus();

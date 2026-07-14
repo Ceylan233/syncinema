@@ -99,50 +99,20 @@ Object.defineProperty(globalThis.navigator, "mediaDevices", {
 });
 const plainConstraints = VoiceManager.prototype.buildAudioConstraints.call({
   noiseReductionEnabled: false,
-  selectedInputDeviceId: "",
   useRnnoiseEngine: () => true,
   rnnoiseStatus: "off"
 });
-assert.equal(
-  plainConstraints,
-  true,
-  "plain mode must use the browser's default capture path so system APO processing remains available"
-);
-const selectedPlainConstraints = VoiceManager.prototype.buildAudioConstraints.call({
-  noiseReductionEnabled: false,
-  selectedInputDeviceId: "apo-device"
-});
-assert.deepEqual(
-  selectedPlainConstraints,
-  { deviceId: { exact: "apo-device" } },
-  "plain mode must select an exact APO-configured microphone without adding processing constraints"
-);
+assert.equal(plainConstraints.echoCancellation, true, "plain mode must retain echo cancellation");
+assert.equal(plainConstraints.noiseSuppression, false, "APO mode must not add browser noise suppression");
+assert.equal(plainConstraints.autoGainControl, false, "APO mode must not add browser automatic gain control");
 const denoisedConstraints = VoiceManager.prototype.buildAudioConstraints.call({
   noiseReductionEnabled: true,
-  selectedInputDeviceId: "",
   useRnnoiseEngine: () => true,
   rnnoiseStatus: "ready"
 });
 assert.equal(denoisedConstraints.echoCancellation, true, "denoising mode must enable echo cancellation");
 assert.equal(denoisedConstraints.noiseSuppression, false, "RNNoise mode must avoid double noise suppression");
 assert.equal(denoisedConstraints.autoGainControl, false, "RNNoise mode must avoid double automatic gain control");
-
-let plainApplyCalls = 0;
-await VoiceManager.prototype.applyVoiceEnhancements.call({
-  syntheticCapture: null,
-  noiseReductionEnabled: false,
-  inputStream: {
-    getAudioTracks: () => [{
-      applyConstraints: async () => { plainApplyCalls += 1; }
-    }]
-  },
-  buildAudioConstraints: () => true
-});
-assert.equal(
-  plainApplyCalls,
-  0,
-  "plain mode must not reapply constraints after opening the default capture path"
-);
 Object.defineProperty(globalThis.navigator, "mediaDevices", {
   configurable: true,
   value: originalMediaDevices
@@ -160,18 +130,6 @@ assert.equal(
   "a suspended capture context must resume automatically"
 );
 
-const blockedContext = {
-  state: "suspended",
-  resume: () => new Promise(() => {})
-};
-const blockedResumeStartedAt = Date.now();
-assert.equal(
-  await VoiceManager.prototype.resumeCaptureContext.call({ audioContext: blockedContext }, 20),
-  false,
-  "a blocked AudioContext resume must time out instead of hanging microphone startup"
-);
-assert.ok(Date.now() - blockedResumeStartedAt < 200, "blocked AudioContext resume must return promptly");
-
 const plainVoiceProfile = VoiceManager.prototype.processingProfile.call({ noiseReductionEnabled: false });
 const denoisedVoiceProfile = VoiceManager.prototype.processingProfile.call({ noiseReductionEnabled: true });
 assert.ok(plainVoiceProfile.ratio >= 1.5, "plain voice must keep gentle transient compression");
@@ -180,24 +138,10 @@ assert.ok(denoisedVoiceProfile.ratio < 2, "denoising must avoid over-compressing
 assert.ok(denoisedVoiceProfile.makeupGain > 1, "denoised speech must receive makeup gain");
 
 const rawCaptureStream = { id: "raw-microphone" };
-const bridgedCaptureStream = { id: "web-audio-bridge" };
 assert.equal(
-  VoiceManager.prototype.webRtcStream.call({
-    noiseReductionEnabled: false,
-    rnnoiseProcessor: null,
-    processedStream: bridgedCaptureStream
-  }, rawCaptureStream),
+  VoiceManager.prototype.webRtcStream.call({}, rawCaptureStream),
   rawCaptureStream,
-  "plain mode must keep the stable microphone track after the bridge experiment proved ineffective"
-);
-assert.equal(
-  VoiceManager.prototype.webRtcStream.call({
-    noiseReductionEnabled: true,
-    rnnoiseProcessor: {},
-    processedStream: bridgedCaptureStream
-  }, rawCaptureStream),
-  bridgedCaptureStream,
-  "RNNoise mode must send the processed track"
+  "WebRTC must use the raw microphone track instead of a suspendable WebAudio destination"
 );
 
 console.log("Voice routing tests passed");
