@@ -7,8 +7,8 @@ const routing = {
 };
 assert.deepEqual(
   VoiceManager.prototype.relayTargetIds.call(routing),
-  ["p2p-peer", "relay-peer"],
-  "socket PCM must remain available until the receiver confirms audible WebRTC audio"
+  ["relay-peer"],
+  "socket PCM must only target peers without a connected WebRTC path"
 );
 assert.equal(
   VoiceManager.prototype.shouldSuppressRelayPlayback.call({
@@ -17,8 +17,8 @@ assert.equal(
     remotePlaybackBlocked: true,
     hasRecentP2PAudio: () => false
   }, "p2p-peer"),
-  false,
-  "a connected but silent WebRTC path must not suppress relay audio"
+  true,
+  "a connected WebRTC path must suppress duplicate relay audio"
 );
 assert.equal(
   VoiceManager.prototype.shouldSuppressRelayPlayback.call({
@@ -97,14 +97,22 @@ Object.defineProperty(globalThis.navigator, "mediaDevices", {
     })
   }
 });
-const plainConstraints = VoiceManager.prototype.buildAudioConstraints.call({ noiseReductionEnabled: false });
-assert.equal(plainConstraints.echoCancellation, false, "APO mode must not add browser echo cancellation");
+const plainConstraints = VoiceManager.prototype.buildAudioConstraints.call({
+  noiseReductionEnabled: false,
+  useRnnoiseEngine: () => true,
+  rnnoiseStatus: "off"
+});
+assert.equal(plainConstraints.echoCancellation, true, "plain mode must retain echo cancellation");
 assert.equal(plainConstraints.noiseSuppression, false, "APO mode must not add browser noise suppression");
 assert.equal(plainConstraints.autoGainControl, false, "APO mode must not add browser automatic gain control");
-const denoisedConstraints = VoiceManager.prototype.buildAudioConstraints.call({ noiseReductionEnabled: true });
+const denoisedConstraints = VoiceManager.prototype.buildAudioConstraints.call({
+  noiseReductionEnabled: true,
+  useRnnoiseEngine: () => true,
+  rnnoiseStatus: "ready"
+});
 assert.equal(denoisedConstraints.echoCancellation, true, "denoising mode must enable echo cancellation");
-assert.equal(denoisedConstraints.noiseSuppression, true, "denoising mode must enable browser noise suppression");
-assert.equal(denoisedConstraints.autoGainControl, true, "denoising mode must enable automatic gain control");
+assert.equal(denoisedConstraints.noiseSuppression, false, "RNNoise mode must avoid double noise suppression");
+assert.equal(denoisedConstraints.autoGainControl, false, "RNNoise mode must avoid double automatic gain control");
 Object.defineProperty(globalThis.navigator, "mediaDevices", {
   configurable: true,
   value: originalMediaDevices
@@ -124,9 +132,9 @@ assert.equal(
 
 const plainVoiceProfile = VoiceManager.prototype.processingProfile.call({ noiseReductionEnabled: false });
 const denoisedVoiceProfile = VoiceManager.prototype.processingProfile.call({ noiseReductionEnabled: true });
-assert.ok(plainVoiceProfile.ratio > 2, "keyboard transients must be compressed on the plain voice path");
+assert.ok(plainVoiceProfile.ratio >= 1.5, "plain voice must keep gentle transient compression");
 assert.ok(plainVoiceProfile.makeupGain > 1, "quiet speech must receive makeup gain on the plain voice path");
-assert.ok(denoisedVoiceProfile.ratio > 2, "keyboard transients must be compressed after denoising");
+assert.ok(denoisedVoiceProfile.ratio < 2, "denoising must avoid over-compressing speech tails");
 assert.ok(denoisedVoiceProfile.makeupGain > 1, "denoised speech must receive makeup gain");
 
 const rawCaptureStream = { id: "raw-microphone" };

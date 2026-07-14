@@ -1,6 +1,15 @@
 var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
 var __typeError = (msg) => {
   throw TypeError(msg);
+};
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -11,6 +20,74 @@ var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read fr
 var __privateAdd = (obj, member, value2) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value2);
 var __privateSet = (obj, member, value2, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value2) : member.set(obj, value2), value2);
 var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
+
+// node_modules/@sapphi-red/web-noise-suppressor/dist/index.js
+var dist_exports = {};
+__export(dist_exports, {
+  NoiseGateWorkletNode: () => NoiseGateWorkletNode,
+  RnnoiseWorkletNode: () => RnnoiseWorkletNode,
+  SpeexWorkletNode: () => SpeexWorkletNode,
+  loadRnnoise: () => loadRnnoise,
+  loadSpeex: () => loadSpeex
+});
+var id, NoiseGateWorkletNode, simd, fetchArrayBuffer, loadRnnoise, id2, RnnoiseWorkletNode, loadSpeex, id3, SpeexWorkletNode;
+var init_dist = __esm({
+  "node_modules/@sapphi-red/web-noise-suppressor/dist/index.js"() {
+    id = "@sapphi-red/web-noise-suppressor/noise-gate";
+    NoiseGateWorkletNode = class extends AudioWorkletNode {
+      constructor(context, {
+        openThreshold,
+        closeThreshold = openThreshold,
+        holdMs,
+        maxChannels
+      }) {
+        const workletOptions = {
+          processorOptions: { openThreshold, closeThreshold, holdMs, maxChannels }
+        };
+        super(context, id, workletOptions);
+      }
+    };
+    simd = async () => WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]));
+    fetchArrayBuffer = async (url2, init) => {
+      const res = await fetch(url2, init);
+      const result = await res.arrayBuffer();
+      return result;
+    };
+    loadRnnoise = async ({ url: url2, simdUrl }, init) => {
+      const loadUrl = await simd() ? simdUrl : url2;
+      const binary = await fetchArrayBuffer(loadUrl, init);
+      return binary;
+    };
+    id2 = "@sapphi-red/web-noise-suppressor/rnnoise";
+    RnnoiseWorkletNode = class extends AudioWorkletNode {
+      constructor(context, { maxChannels, wasmBinary }) {
+        const workletOptions = {
+          processorOptions: { maxChannels, wasmBinary }
+        };
+        super(context, id2, workletOptions);
+      }
+      destroy() {
+        this.port.postMessage("destroy");
+      }
+    };
+    loadSpeex = async ({ url: url2 }, init) => {
+      const binary = await fetchArrayBuffer(url2, init);
+      return binary;
+    };
+    id3 = "@sapphi-red/web-noise-suppressor/speex";
+    SpeexWorkletNode = class extends AudioWorkletNode {
+      constructor(context, { maxChannels, wasmBinary }) {
+        const workletOptions = {
+          processorOptions: { maxChannels, wasmBinary }
+        };
+        super(context, id3, workletOptions);
+      }
+      destroy() {
+        this.port.postMessage("destroy");
+      }
+    };
+  }
+});
 
 // client/id.js
 function createId(prefix = "pc") {
@@ -2210,8 +2287,8 @@ function isNamespaceValid(nsp) {
 var isInteger = Number.isInteger || function(value2) {
   return typeof value2 === "number" && isFinite(value2) && Math.floor(value2) === value2;
 };
-function isAckIdValid(id) {
-  return id === void 0 || isInteger(id);
+function isAckIdValid(id4) {
+  return id4 === void 0 || isInteger(id4);
 }
 function isObject(value2) {
   return Object.prototype.toString.call(value2) === "[object Object]";
@@ -2411,10 +2488,10 @@ var Socket2 = class extends Emitter {
     packet.options = {};
     packet.options.compress = this.flags.compress !== false;
     if ("function" === typeof args[args.length - 1]) {
-      const id = this.ids++;
+      const id4 = this.ids++;
       const ack = args.pop();
-      this._registerAckCallback(id, ack);
-      packet.id = id;
+      this._registerAckCallback(id4, ack);
+      packet.id = id4;
     }
     const isTransportWritable = (_b = (_a286 = this.io.engine) === null || _a286 === void 0 ? void 0 : _a286.transport) === null || _b === void 0 ? void 0 : _b.writable;
     const isConnected = this.connected && !((_c = this.io.engine) === null || _c === void 0 ? void 0 : _c._hasPingExpired());
@@ -2432,17 +2509,17 @@ var Socket2 = class extends Emitter {
   /**
    * @private
    */
-  _registerAckCallback(id, ack) {
+  _registerAckCallback(id4, ack) {
     var _a286;
     const timeout = (_a286 = this.flags.timeout) !== null && _a286 !== void 0 ? _a286 : this._opts.ackTimeout;
     if (timeout === void 0) {
-      this.acks[id] = ack;
+      this.acks[id4] = ack;
       return;
     }
     const timer = this.io.setTimeoutFn(() => {
-      delete this.acks[id];
+      delete this.acks[id4];
       for (let i = 0; i < this.sendBuffer.length; i++) {
-        if (this.sendBuffer[i].id === id) {
+        if (this.sendBuffer[i].id === id4) {
           this.sendBuffer.splice(i, 1);
         }
       }
@@ -2453,7 +2530,7 @@ var Socket2 = class extends Emitter {
       ack.apply(this, args);
     };
     fn.withError = true;
-    this.acks[id] = fn;
+    this.acks[id4] = fn;
   }
   /**
    * Emits an event and waits for an acknowledgement
@@ -2607,11 +2684,11 @@ var Socket2 = class extends Emitter {
    * @private
    */
   _clearAcks() {
-    Object.keys(this.acks).forEach((id) => {
-      const isBuffered = this.sendBuffer.some((packet) => String(packet.id) === id);
+    Object.keys(this.acks).forEach((id4) => {
+      const isBuffered = this.sendBuffer.some((packet) => String(packet.id) === id4);
       if (!isBuffered) {
-        const ack = this.acks[id];
-        delete this.acks[id];
+        const ack = this.acks[id4];
+        delete this.acks[id4];
         if (ack.withError) {
           ack.call(this, new Error("socket has been disconnected"));
         }
@@ -2689,7 +2766,7 @@ var Socket2 = class extends Emitter {
    *
    * @private
    */
-  ack(id) {
+  ack(id4) {
     const self2 = this;
     let sent = false;
     return function(...args) {
@@ -2698,7 +2775,7 @@ var Socket2 = class extends Emitter {
       sent = true;
       self2.packet({
         type: PacketType.ACK,
-        id,
+        id: id4,
         data: args
       });
     };
@@ -2725,8 +2802,8 @@ var Socket2 = class extends Emitter {
    *
    * @private
    */
-  onconnect(id, pid) {
-    this.id = id;
+  onconnect(id4, pid) {
+    this.id = id4;
     this.recovered = pid && this._pid === pid;
     this._pid = pid;
     this.connected = true;
@@ -3408,18 +3485,18 @@ function lookup2(uri, opts) {
   opts = opts || {};
   const parsed = url(uri, opts.path || "/socket.io");
   const source = parsed.source;
-  const id = parsed.id;
+  const id4 = parsed.id;
   const path = parsed.path;
-  const sameNamespace = cache[id] && path in cache[id]["nsps"];
+  const sameNamespace = cache[id4] && path in cache[id4]["nsps"];
   const newConnection = opts.forceNew || opts["force new connection"] || false === opts.multiplex || sameNamespace;
   let io;
   if (newConnection) {
     io = new Manager(source, opts);
   } else {
-    if (!cache[id]) {
-      cache[id] = new Manager(source, opts);
+    if (!cache[id4]) {
+      cache[id4] = new Manager(source, opts);
     }
-    io = cache[id];
+    io = cache[id4];
   }
   if (parsed.query && !opts.query) {
     opts.query = parsed.queryKey;
@@ -3784,9 +3861,9 @@ var PeerMesh = class extends EventTarget {
       console.warn("ICE config load failed", error);
     }
   }
-  setSelfId(id) {
-    if (this.selfId && this.selfId !== id) this.reset();
-    this.selfId = id;
+  setSelfId(id4) {
+    if (this.selfId && this.selfId !== id4) this.reset();
+    this.selfId = id4;
   }
   async setLocalStream(stream) {
     this.localStream = stream;
@@ -4323,7 +4400,6 @@ var VoiceManager = class extends EventTarget {
     this.rnnoiseProcessor = null;
     this.rnnoiseInputFrame = null;
     this.rnnoiseFrameOffset = 0;
-    this.rnnoiseOutputQueue = [];
     this.rnnoiseNoticeShown = false;
     this.rnnoiseAvailable = false;
     this.rnnoiseStatus = "off";
@@ -4366,7 +4442,6 @@ var VoiceManager = class extends EventTarget {
     this.noiseReductionEnabled = this.loadNoiseReduction();
     this.ui.setNoiseControl?.({ enabled: this.noiseReductionEnabled });
     this.installPlaybackUnlock();
-    window.setTimeout(() => this.preloadRnnoiseModule(), 1200);
   }
   async start() {
     if (this.stream) {
@@ -4404,9 +4479,10 @@ var VoiceManager = class extends EventTarget {
   buildAudioConstraints() {
     const supported2 = navigator.mediaDevices.getSupportedConstraints?.() || {};
     const audio = {};
-    if (supported2.echoCancellation) audio.echoCancellation = this.noiseReductionEnabled;
-    if (supported2.noiseSuppression) audio.noiseSuppression = this.noiseReductionEnabled;
-    if (supported2.autoGainControl) audio.autoGainControl = this.noiseReductionEnabled;
+    const useSoftwareDenoiser = this.noiseReductionEnabled && this.useRnnoiseEngine?.() && this.rnnoiseStatus !== "failed";
+    if (supported2.echoCancellation) audio.echoCancellation = true;
+    if (supported2.noiseSuppression) audio.noiseSuppression = this.noiseReductionEnabled && !useSoftwareDenoiser;
+    if (supported2.autoGainControl) audio.autoGainControl = this.noiseReductionEnabled && !useSoftwareDenoiser;
     if (supported2.voiceIsolation) audio.voiceIsolation = false;
     if (supported2.channelCount) audio.channelCount = { ideal: 1 };
     if (supported2.sampleRate) audio.sampleRate = { ideal: 48e3 };
@@ -4477,20 +4553,35 @@ var VoiceManager = class extends EventTarget {
     this.startCaptureHealthMonitor();
   }
   async captureInputStream() {
-    if (new URLSearchParams(window.location.search).get("voiceTest") === "1") {
+    const testMode = new URLSearchParams(window.location.search).get("voiceTest");
+    if (testMode === "1" || testMode === "noise") {
       const audioContext = this.ensureAudioContext();
       await audioContext.resume?.().catch(() => {
       });
-      const oscillator = audioContext.createOscillator();
       const gain = audioContext.createGain();
       const destination = audioContext.createMediaStreamDestination();
-      oscillator.type = "sine";
-      oscillator.frequency.value = 440;
       gain.gain.value = 0.16;
-      oscillator.connect(gain);
+      let source;
+      if (testMode === "noise") {
+        const buffer2 = audioContext.createBuffer(1, audioContext.sampleRate * 2, audioContext.sampleRate);
+        const samples = buffer2.getChannelData(0);
+        let seed = 305419896;
+        for (let index = 0; index < samples.length; index += 1) {
+          seed = seed * 1664525 + 1013904223 >>> 0;
+          samples[index] = seed / 4294967295 * 2 - 1;
+        }
+        source = audioContext.createBufferSource();
+        source.buffer = buffer2;
+        source.loop = true;
+      } else {
+        source = audioContext.createOscillator();
+        source.type = "sine";
+        source.frequency.value = 440;
+      }
+      source.connect(gain);
       gain.connect(destination);
-      oscillator.start();
-      this.syntheticCapture = { oscillator, gain, destination };
+      source.start();
+      this.syntheticCapture = { source, gain, destination, mode: testMode };
       return destination.stream;
     }
     return navigator.mediaDevices.getUserMedia({
@@ -4723,10 +4814,7 @@ var VoiceManager = class extends EventTarget {
       this.lastRawRms = rms;
       meter.lastRms = rms;
       if (rms > 4e-3) {
-        const now = Date.now();
-        const p2pWasSilent = now - meter.lastAudibleAt >= 550;
-        meter.lastAudibleAt = now;
-        if (p2pWasSilent) this.stopRelayPlayback(peerId);
+        meter.lastAudibleAt = Date.now();
       }
       meter.frame = requestAnimationFrame(tick);
     };
@@ -4770,6 +4858,7 @@ var VoiceManager = class extends EventTarget {
     return Boolean(meter && Date.now() - meter.lastAudibleAt < 550 && (meter.lastRms || 0) > 4e-3);
   }
   shouldSuppressRelayPlayback(peerId) {
+    if (this.realtimePeers.has(String(peerId || ""))) return true;
     if (!this.audioUnlocked || this.remotePlaybackBlocked) return false;
     if (!this.hasRecentP2PAudio(peerId)) return false;
     const audio = this.remoteAudios.get(peerId);
@@ -4786,18 +4875,18 @@ var VoiceManager = class extends EventTarget {
   }
   setRealtimePeer(peerId, connected) {
     if (!peerId) return;
-    const id = String(peerId);
+    const id4 = String(peerId);
     if (connected) {
-      this.realtimePeers.set(id, Date.now());
+      this.realtimePeers.set(id4, Date.now());
     } else {
-      this.realtimePeers.delete(id);
+      this.realtimePeers.delete(id4);
     }
   }
   realtimePeerCount() {
     return Array.from(this.realtimePeers.keys()).filter((peerId) => this.expectedRemotePeers.has(peerId)).length;
   }
   relayTargetIds() {
-    return Array.from(this.expectedRemotePeers);
+    return Array.from(this.expectedRemotePeers).filter((peerId) => !this.realtimePeers.has(peerId));
   }
   createProcessedStream(inputStream) {
     this.audioContext = this.ensureAudioContext();
@@ -4811,12 +4900,12 @@ var VoiceManager = class extends EventTarget {
     const highpass = this.audioContext.createBiquadFilter();
     this.highpassFilter = highpass;
     highpass.type = "highpass";
-    highpass.frequency.value = this.noiseReductionEnabled ? 55 : 35;
+    highpass.frequency.value = this.noiseReductionEnabled ? 45 : 35;
     highpass.Q.value = 0.7;
     const lowpass = this.audioContext.createBiquadFilter();
     this.lowpassFilter = lowpass;
     lowpass.type = "lowpass";
-    lowpass.frequency.value = this.noiseReductionEnabled ? 14500 : 18e3;
+    lowpass.frequency.value = this.noiseReductionEnabled ? 17e3 : 19e3;
     lowpass.Q.value = 0.45;
     const postNoiseFilter = this.audioContext.createBiquadFilter();
     this.postNoiseFilter = postNoiseFilter;
@@ -4837,67 +4926,57 @@ var VoiceManager = class extends EventTarget {
     this.gateGain.gain.value = 1;
     const destination = this.audioContext.createMediaStreamDestination();
     source.connect(this.inputGain);
-    this.inputGain.connect(highpass);
     if (this.noiseReductionEnabled && this.rnnoiseProcessor) {
-      highpass.connect(lowpass);
-      lowpass.connect(this.rnnoiseProcessor);
-      this.rnnoiseProcessor.connect(postNoiseFilter);
-      postNoiseFilter.connect(compressor);
+      this.inputGain.connect(this.rnnoiseProcessor);
+      this.rnnoiseProcessor.connect(this.gateGain);
     } else {
+      this.inputGain.connect(highpass);
       highpass.connect(lowpass);
       lowpass.connect(compressor);
+      compressor.connect(this.voiceGain);
+      this.voiceGain.connect(this.gateGain);
     }
-    compressor.connect(this.voiceGain);
-    this.voiceGain.connect(this.gateGain);
     this.gateGain.connect(destination);
     return destination.stream;
   }
   webRtcStream(inputStream) {
-    return this.noiseReductionEnabled && this.processedStream ? this.processedStream : inputStream;
-  }
-  async preloadRnnoiseModule() {
-    if (this.rnnoiseModule) return true;
-    try {
-      const { Rnnoise } = await import("/vendor/rnnoise/rnnoise.js?v=20260710-shiguredo-2");
-      this.rnnoiseModule = await Rnnoise.load();
-      return true;
-    } catch (error) {
-      console.warn("RNNoise preload failed", error);
-      return false;
+    if (this.noiseReductionEnabled && this.rnnoiseProcessor && this.processedStream) {
+      return this.processedStream;
     }
+    return inputStream;
   }
   async prepareRnnoiseProcessor() {
     this.rnnoiseNode = null;
+    this.rnnoiseProcessor?.destroy?.();
     this.rnnoiseProcessor = null;
-    this.rnnoiseState?.destroy?.();
-    this.rnnoiseState = null;
-    this.rnnoiseInputFrame = null;
-    this.rnnoiseFrameOffset = 0;
-    this.rnnoiseOutputQueue = [];
     this.rnnoiseAvailable = false;
     this.rnnoiseStatus = "off";
     if (!this.noiseReductionEnabled || !this.useRnnoiseEngine()) return false;
     this.audioContext = this.ensureAudioContext();
-    if (!this.audioContext?.createScriptProcessor) {
+    if (!this.audioContext?.audioWorklet || typeof AudioWorkletNode === "undefined") {
       this.rnnoiseStatus = "unsupported";
       return false;
     }
     try {
-      if (!this.rnnoiseModule) {
-        await this.preloadRnnoiseModule();
-      }
-      if (!this.rnnoiseModule) throw new Error("RNNoise module unavailable");
-      const frameSize = this.rnnoiseModule.frameSize || 480;
-      this.rnnoiseState = this.rnnoiseModule.createDenoiseState();
-      this.rnnoiseInputFrame = new Float32Array(frameSize);
-      this.rnnoiseFrameOffset = 0;
-      this.rnnoiseOutputQueue = [];
-      this.rnnoiseProcessor = this.audioContext.createScriptProcessor(2048, 1, 1);
-      this.rnnoiseProcessor.onaudioprocess = (event) => this.processRnnoiseAudio(event);
+      const assets = "/vendor/noise-suppressor";
+      const [{ RnnoiseWorkletNode: RnnoiseWorkletNode2 }, wasmBinary] = await Promise.all([
+        Promise.resolve().then(() => (init_dist(), dist_exports)),
+        Promise.resolve().then(() => (init_dist(), dist_exports)).then(
+          ({ loadRnnoise: loadRnnoise2 }) => loadRnnoise2({
+            url: `${assets}/rnnoise.wasm`,
+            simdUrl: `${assets}/rnnoise_simd.wasm`
+          })
+        ),
+        this.audioContext.audioWorklet.addModule(`${assets}/rnnoiseWorklet.js?v=20260715-vad3`)
+      ]);
+      this.rnnoiseProcessor = new RnnoiseWorkletNode2(this.audioContext, {
+        maxChannels: 1,
+        wasmBinary
+      });
       this.rnnoiseAvailable = true;
       this.rnnoiseStatus = "ready";
       if (!this.rnnoiseNoticeShown) {
-        this.ui.addSystemMessage("RNNoise 强力降噪已启用");
+        this.ui.addSystemMessage("RNNoise 音频线程降噪已启用");
         this.rnnoiseNoticeShown = true;
       }
       return true;
@@ -4911,42 +4990,12 @@ var VoiceManager = class extends EventTarget {
   useRnnoiseEngine() {
     return localStorage.getItem("pc:noise-engine") !== "off";
   }
-  processRnnoiseAudio(event) {
-    const input = event.inputBuffer.getChannelData(0);
-    const output = event.outputBuffer.getChannelData(0);
-    if (!this.rnnoiseState || !this.rnnoiseInputFrame) {
-      output.set(input);
-      return;
-    }
-    for (let index = 0; index < output.length; index += 1) {
-      const sample = Math.max(-1, Math.min(1, input[index] || 0));
-      this.rnnoiseInputFrame[this.rnnoiseFrameOffset] = sample * 32768;
-      const queued = this.rnnoiseOutputQueue.shift();
-      output[index] = queued === void 0 ? sample : queued;
-      this.rnnoiseFrameOffset += 1;
-      if (this.rnnoiseFrameOffset >= this.rnnoiseInputFrame.length) {
-        const frame = new Float32Array(this.rnnoiseInputFrame);
-        try {
-          this.rnnoiseState.processFrame(frame);
-          for (let frameIndex = 0; frameIndex < frame.length; frameIndex += 1) {
-            this.rnnoiseOutputQueue.push(Math.max(-1, Math.min(1, frame[frameIndex] / 32768)));
-          }
-        } catch (error) {
-          console.warn("RNNoise frame failed", error);
-          output.set(input);
-          this.rnnoiseStatus = "failed";
-          return;
-        }
-        this.rnnoiseFrameOffset = 0;
-      }
-    }
-  }
   updateProcessingMode() {
     if (!this.audioContext) return;
     const now = this.audioContext.currentTime;
     const profile = this.processingProfile();
-    this.highpassFilter?.frequency?.setTargetAtTime(this.noiseReductionEnabled ? 55 : 35, now, 0.04);
-    this.lowpassFilter?.frequency?.setTargetAtTime(this.noiseReductionEnabled ? 14500 : 18e3, now, 0.04);
+    this.highpassFilter?.frequency?.setTargetAtTime(this.noiseReductionEnabled ? 45 : 35, now, 0.04);
+    this.lowpassFilter?.frequency?.setTargetAtTime(this.noiseReductionEnabled ? 17e3 : 19e3, now, 0.04);
     this.postNoiseFilter?.frequency?.setTargetAtTime(9600, now, 0.04);
     if (this.compressor) {
       this.compressor.threshold.setTargetAtTime(profile.threshold, now, 0.04);
@@ -4975,16 +5024,14 @@ var VoiceManager = class extends EventTarget {
       } catch {
       }
     });
-    if (this.rnnoiseProcessor) this.rnnoiseProcessor.onaudioprocess = null;
-    this.rnnoiseState?.destroy?.();
+    this.rnnoiseProcessor?.destroy?.();
     this.rnnoiseState = null;
     this.rnnoiseProcessor = null;
     this.rnnoiseInputFrame = null;
     this.rnnoiseFrameOffset = 0;
-    this.rnnoiseOutputQueue = [];
   }
   processingProfile() {
-    return this.noiseReductionEnabled ? { threshold: -40, knee: 18, ratio: 3.2, attack: 3e-3, release: 0.22, makeupGain: 1.65 } : { threshold: -42, knee: 20, ratio: 2.8, attack: 3e-3, release: 0.24, makeupGain: 1.4 };
+    return this.noiseReductionEnabled ? { threshold: -48, knee: 24, ratio: 1.8, attack: 8e-3, release: 0.32, makeupGain: 1.18 } : { threshold: -48, knee: 24, ratio: 1.5, attack: 8e-3, release: 0.32, makeupGain: 1.08 };
   }
   setOutputVolume(value2) {
     this.outputVolume = Math.min(1, Math.max(0, value2));
@@ -5368,8 +5415,8 @@ var VoiceManager = class extends EventTarget {
   stopSyntheticCapture() {
     if (!this.syntheticCapture) return;
     try {
-      this.syntheticCapture.oscillator?.stop?.();
-      this.syntheticCapture.oscillator?.disconnect?.();
+      this.syntheticCapture.source?.stop?.();
+      this.syntheticCapture.source?.disconnect?.();
       this.syntheticCapture.gain?.disconnect?.();
     } catch {
     }
@@ -5388,6 +5435,10 @@ var VoiceManager = class extends EventTarget {
     return {
       enabled: this.enabled,
       synthetic: Boolean(this.syntheticCapture),
+      noiseReductionEnabled: this.noiseReductionEnabled,
+      rnnoiseStatus: this.rnnoiseStatus,
+      rnnoiseAvailable: this.rnnoiseAvailable,
+      rnnoiseWorklet: Boolean(this.rnnoiseProcessor),
       audioContextState: this.audioContext?.state || "none",
       rawRms: Number(this.lastRawRms || 0),
       relayTargets: this.relayTargetIds(),
@@ -10874,7 +10925,7 @@ var ISOFile = class ISOFile2 {
     } else this.stream = new MultiBufferStream();
     this.stream.isofile = this;
   }
-  setSegmentOptions(id, user, opts) {
+  setSegmentOptions(id4, user, opts) {
     const { sizePerSegment = Number.MAX_SAFE_INTEGER, rapAlignement = true, normalizeAudioSampleEntriesForMSE = true } = opts;
     let nbSamples = opts.nbSamples ?? opts.nbSamplesPerFragment ?? 1e3;
     const nbSamplesPerFragment = opts.nbSamplesPerFragment ?? nbSamples;
@@ -10887,13 +10938,13 @@ var ISOFile = class ISOFile2 {
       nbSamples = nbSamplesPerFragment;
     }
     if (this.fragmentedTracks.some((track2) => track2.nb_samples !== nbSamples)) {
-      Log.error("ISOFile", `Cannot set segment options for track ${id}: nbSamples (${nbSamples}) does not match existing tracks`);
+      Log.error("ISOFile", `Cannot set segment options for track ${id4}: nbSamples (${nbSamples}) does not match existing tracks`);
       return;
     }
-    const trak = this.getTrackById(id);
+    const trak = this.getTrackById(id4);
     if (trak) {
       const fragTrack = {
-        id,
+        id: id4,
         user,
         trak,
         segmentStream: void 0,
@@ -10913,16 +10964,16 @@ var ISOFile = class ISOFile2 {
     }
     if (this.discardMdatData) Log.warn("ISOFile", "Segmentation options set but discardMdatData is true, samples will not be segmented");
   }
-  unsetSegmentOptions(id) {
+  unsetSegmentOptions(id4) {
     let index = -1;
-    for (let i = 0; i < this.fragmentedTracks.length; i++) if (this.fragmentedTracks[i].id === id) index = i;
+    for (let i = 0; i < this.fragmentedTracks.length; i++) if (this.fragmentedTracks[i].id === id4) index = i;
     if (index > -1) this.fragmentedTracks.splice(index, 1);
   }
-  setExtractionOptions(id, user, { nbSamples: nb_samples = 1e3 } = {}) {
-    const trak = this.getTrackById(id);
+  setExtractionOptions(id4, user, { nbSamples: nb_samples = 1e3 } = {}) {
+    const trak = this.getTrackById(id4);
     if (trak) {
       this.extractedTracks.push({
-        id,
+        id: id4,
         user,
         trak,
         nb_samples,
@@ -10932,9 +10983,9 @@ var ISOFile = class ISOFile2 {
     }
     if (this.discardMdatData) Log.warn("ISOFile", "Extraction options set but discardMdatData is true, samples will not be extracted");
   }
-  unsetExtractionOptions(id) {
+  unsetExtractionOptions(id4) {
     let index = -1;
-    for (let i = 0; i < this.extractedTracks.length; i++) if (this.extractedTracks[i].id === id) index = i;
+    for (let i = 0; i < this.extractedTracks.length; i++) if (this.extractedTracks[i].id === id4) index = i;
     if (index > -1) this.extractedTracks.splice(index, 1);
   }
   parse() {
@@ -11299,12 +11350,12 @@ var ISOFile = class ISOFile2 {
     const track2 = this.getTrackById(track_id);
     return this.getSample(track2, number);
   }
-  releaseUsedSamples(id, sampleNum) {
+  releaseUsedSamples(id4, sampleNum) {
     let size = 0;
-    const trak = this.getTrackById(id);
+    const trak = this.getTrackById(id4);
     if (!trak.lastValidSample) trak.lastValidSample = 0;
     for (let i = trak.lastValidSample; i < sampleNum; i++) size += this.releaseSample(trak, i);
-    Log.info("ISOFile", "Track #" + id + " released samples up to " + sampleNum + " (released size: " + size + ", remaining: " + this.samplesDataSize + ")");
+    Log.info("ISOFile", "Track #" + id4 + " released samples up to " + sampleNum + " (released size: " + size + ", remaining: " + this.samplesDataSize + ")");
     trak.lastValidSample = sampleNum;
   }
   start() {
@@ -11542,12 +11593,12 @@ var ISOFile = class ISOFile2 {
     }
     const fragmentDuration = this.moov?.mvex?.mehd?.fragment_duration;
     const normalizeAudioSampleEntryTrackIds = new Set(this.fragmentedTracks.filter((track2) => track2.normalizeAudioSampleEntriesForMSE !== false).map((track2) => track2.id));
-    if (mode === "per-track") return tracksToInitialize.map(({ id, user, trak }) => {
+    if (mode === "per-track") return tracksToInitialize.map(({ id: id4, user, trak }) => {
       const moov2 = new moovBox();
       moov2.addBox(this.moov.mvhd);
       moov2.addBox(trak);
       return {
-        id,
+        id: id4,
         user,
         buffer: ISOFile2.writeInitializationSegment(this.ftyp, moov2, fragmentDuration, normalizeAudioSampleEntryTrackIds)
       };
@@ -11556,8 +11607,8 @@ var ISOFile = class ISOFile2 {
     moov.addBox(this.moov.mvhd);
     for (const track2 of tracksToInitialize) moov.addBox(track2.trak);
     return {
-      tracks: tracksToInitialize.map(({ id, user }) => ({
-        id,
+      tracks: tracksToInitialize.map(({ id: id4, user }) => ({
+        id: id4,
         user
       })),
       buffer: ISOFile2.writeInitializationSegment(this.ftyp, moov, fragmentDuration, normalizeAudioSampleEntryTrackIds)
@@ -11997,11 +12048,11 @@ var ISOFile = class ISOFile2 {
   *
   * @bundle isofile-sample-processing.js
   */
-  getTrexById(id) {
+  getTrexById(id4) {
     if (!this.moov || !this.moov.mvex) return;
     for (let i = 0; i < this.moov.mvex.trexs.length; i++) {
       const trex = this.moov.mvex.trexs[i];
-      if (trex.track_id === id) return trex;
+      if (trex.track_id === id4) return trex;
     }
   }
   /**
@@ -12009,11 +12060,11 @@ var ISOFile = class ISOFile2 {
   *
   * @bundle isofile-sample-processing.js
   */
-  getTrackById(id) {
+  getTrackById(id4) {
     if (!this.moov) return;
     for (let j = 0; j < this.moov.traks.length; j++) {
       const trak = this.moov.traks[j];
-      if (trak.tkhd.track_id === id) return trak;
+      if (trak.tkhd.track_id === id4) return trak;
     }
   }
   /** @bundle isofile-item-processing.js */
@@ -12023,9 +12074,9 @@ var ISOFile = class ISOFile2 {
     const meta = this.meta;
     if (!meta || !meta.hdlr || !meta.iinf) return;
     for (let i = 0; i < meta.iinf.item_infos.length; i++) {
-      const id = meta.iinf.item_infos[i].item_ID;
-      items[id] = {
-        id,
+      const id4 = meta.iinf.item_infos[i].item_ID;
+      items[id4] = {
+        id: id4,
         name: meta.iinf.item_infos[i].item_name,
         ref_to: [],
         content_type: meta.iinf.item_infos[i].content_type,
@@ -12063,9 +12114,9 @@ var ISOFile = class ISOFile2 {
       }
     }
     if (meta.pitm) {
-      const id = meta.pitm.item_id;
-      if (!items[id]) Log.warn("ISOFile", "Primary item_id #" + id + " does not exist in items");
-      else items[id].primary = true;
+      const id4 = meta.pitm.item_id;
+      if (!items[id4]) Log.warn("ISOFile", "Primary item_id #" + id4 + " does not exist in items");
+      else items[id4].primary = true;
     }
     if (meta.iref) for (let i = 0; i < meta.iref.references.length; i++) {
       const ref2 = meta.iref.references[i];
@@ -13565,7 +13616,7 @@ var ipmaBox = (_a189 = class extends FullBox {
     const entry_count = stream.readUint32();
     this.associations = [];
     for (let i = 0; i < entry_count; i++) {
-      const id = this.version < 1 ? stream.readUint16() : stream.readUint32();
+      const id4 = this.version < 1 ? stream.readUint16() : stream.readUint32();
       const props = [];
       const association_count = stream.readUint8();
       for (let j = 0; j < association_count; j++) {
@@ -13576,7 +13627,7 @@ var ipmaBox = (_a189 = class extends FullBox {
         });
       }
       this.associations.push({
-        id,
+        id: id4,
         props
       });
     }
@@ -15351,9 +15402,9 @@ var MP4Remuxer = class {
       this.ui.addSystemMessage("MP4 转成流式分片失败，这个文件可能不能边收边播。");
     };
     this.mp4box.onReady = (info) => this.handleReady(info);
-    this.mp4box.onSegment = (id, _user, buffer2, sampleNumber) => {
+    this.mp4box.onSegment = (id4, _user, buffer2, sampleNumber) => {
       this.enqueue(buffer2);
-      this.mp4box.releaseUsedSamples(id, sampleNumber);
+      this.mp4box.releaseUsedSamples(id4, sampleNumber);
     };
     this.ui.addSystemMessage("正在读取 MP4 元数据，准备按需转成可边播的流式分片。");
     return true;
@@ -21758,14 +21809,14 @@ function nextTick2(fn) {
   const p2 = currentFlushPromise || resolvedPromise;
   return fn ? p2.then(this ? fn.bind(this) : fn) : p2;
 }
-function findInsertionIndex(id) {
+function findInsertionIndex(id4) {
   let start2 = flushIndex + 1;
   let end = queue.length;
   while (start2 < end) {
     const middle = start2 + end >>> 1;
     const middleJob = queue[middle];
     const middleJobId = getId(middleJob);
-    if (middleJobId < id || middleJobId === id && middleJob.flags & 2) {
+    if (middleJobId < id4 || middleJobId === id4 && middleJob.flags & 2) {
       start2 = middle + 1;
     } else {
       end = middle;
@@ -21934,22 +21985,22 @@ if (true) {
 }
 var map = /* @__PURE__ */ new Map();
 function registerHMR(instance) {
-  const id = instance.type.__hmrId;
-  let record = map.get(id);
+  const id4 = instance.type.__hmrId;
+  let record = map.get(id4);
   if (!record) {
-    createRecord(id, instance.type);
-    record = map.get(id);
+    createRecord(id4, instance.type);
+    record = map.get(id4);
   }
   record.instances.add(instance);
 }
 function unregisterHMR(instance) {
   map.get(instance.type.__hmrId).instances.delete(instance);
 }
-function createRecord(id, initialDef) {
-  if (map.has(id)) {
+function createRecord(id4, initialDef) {
+  if (map.has(id4)) {
     return false;
   }
-  map.set(id, {
+  map.set(id4, {
     initialDef: normalizeClassComponent(initialDef),
     instances: /* @__PURE__ */ new Set()
   });
@@ -21958,8 +22009,8 @@ function createRecord(id, initialDef) {
 function normalizeClassComponent(component) {
   return isClassComponent(component) ? component.__vccOpts : component;
 }
-function rerender(id, newRender) {
-  const record = map.get(id);
+function rerender(id4, newRender) {
+  const record = map.get(id4);
   if (!record) {
     return;
   }
@@ -21977,8 +22028,8 @@ function rerender(id, newRender) {
     isHmrUpdating = false;
   });
 }
-function reload(id, newComp) {
-  const record = map.get(id);
+function reload(id4, newComp) {
+  const record = map.get(id4);
   if (!record) return;
   newComp = normalizeClassComponent(newComp);
   updateComponentDef(record.initialDef, newComp);
@@ -22036,9 +22087,9 @@ function updateComponentDef(oldComp, newComp) {
   }
 }
 function tryWrap(fn) {
-  return (id, arg) => {
+  return (id4, arg) => {
     try {
-      return fn(id, arg);
+      return fn(id4, arg);
     } catch (e) {
       console.error(e);
       console.warn(
@@ -22160,8 +22211,8 @@ function setCurrentRenderingInstance(instance) {
   currentScopeId = instance && instance.type.__scopeId || null;
   return prev;
 }
-function pushScopeId(id) {
-  currentScopeId = id;
+function pushScopeId(id4) {
+  currentScopeId = id4;
 }
 function popScopeId() {
   currentScopeId = null;
@@ -24067,10 +24118,10 @@ function isMismatchAllowedByVNode({ props }) {
   );
 }
 var requestIdleCallback = getGlobalThis().requestIdleCallback || ((cb) => setTimeout(cb, 1));
-var cancelIdleCallback = getGlobalThis().cancelIdleCallback || ((id) => clearTimeout(id));
+var cancelIdleCallback = getGlobalThis().cancelIdleCallback || ((id4) => clearTimeout(id4));
 var hydrateOnIdle = (timeout = 1e4) => (hydrate2) => {
-  const id = requestIdleCallback(hydrate2, { timeout });
-  return () => cancelIdleCallback(id);
+  const id4 = requestIdleCallback(hydrate2, { timeout });
+  return () => cancelIdleCallback(id4);
 };
 function elementIsVisibleInViewport(el) {
   const { top, left, bottom, right } = el.getBoundingClientRect();
@@ -30255,8 +30306,8 @@ var nodeOps = {
   parentNode: (node) => node.parentNode,
   nextSibling: (node) => node.nextSibling,
   querySelector: (selector) => doc.querySelector(selector),
-  setScopeId(el, id) {
-    el.setAttribute(id, "");
+  setScopeId(el, id4) {
+    el.setAttribute(id4, "");
   },
   // __UNSAFE__
   // Reason: innerHTML.
@@ -30487,9 +30538,9 @@ function nextFrame(cb) {
 }
 var endId = 0;
 function whenTransitionEnds(el, expectedType, explicitTimeout, resolve2) {
-  const id = el._endId = ++endId;
+  const id4 = el._endId = ++endId;
   const resolveIfNotStale = () => {
-    if (id === el._endId) {
+    if (id4 === el._endId) {
       resolve2();
     }
   };
@@ -31460,12 +31511,12 @@ var VueElement = class _VueElement extends BaseClass {
       if (content) {
         for (const n of content) {
           if (scopeId && n.nodeType === 1) {
-            const id = scopeId + "-s";
+            const id4 = scopeId + "-s";
             const walker = document.createTreeWalker(n, 1);
-            n.setAttribute(id, "");
+            n.setAttribute(id4, "");
             let child;
             while (child = walker.nextNode()) {
-              child.setAttribute(id, "");
+              child.setAttribute(id4, "");
             }
           }
           parent.insertBefore(n, o);
@@ -35191,13 +35242,13 @@ function genAssets(assets, type, { helper, push, newline, isTS }) {
     type === "filter" ? RESOLVE_FILTER : type === "component" ? RESOLVE_COMPONENT : RESOLVE_DIRECTIVE
   );
   for (let i = 0; i < assets.length; i++) {
-    let id = assets[i];
-    const maybeSelfReference = id.endsWith("__self");
+    let id4 = assets[i];
+    const maybeSelfReference = id4.endsWith("__self");
     if (maybeSelfReference) {
-      id = id.slice(0, -6);
+      id4 = id4.slice(0, -6);
     }
     push(
-      `const ${toValidAssetId(id, type)} = ${resolver}(${JSON.stringify(id)}${maybeSelfReference ? `, true` : ``})${isTS ? `!` : ``}`
+      `const ${toValidAssetId(id4, type)} = ${resolver}(${JSON.stringify(id4)}${maybeSelfReference ? `, true` : ``})${isTS ? `!` : ``}`
     );
     if (i < assets.length - 1) {
       newline();
@@ -38433,8 +38484,8 @@ var UI = class {
       "transferTitle",
       "transferProgress",
       "transferPercent"
-    ].forEach((id) => {
-      this[id] = document.getElementById(id);
+    ].forEach((id4) => {
+      this[id4] = document.getElementById(id4);
     });
   }
   togglePanel(panel) {
@@ -38628,8 +38679,8 @@ var UI = class {
     this.state.selfId = selfId2 || null;
     this.state.users = Array.isArray(users) ? users : [];
   }
-  setSpeaking(id, speaking) {
-    this.state.users = this.state.users.map((user) => user.id === id ? { ...user, speaking } : user);
+  setSpeaking(id4, speaking) {
+    this.state.users = this.state.users.map((user) => user.id === id4 ? { ...user, speaking } : user);
   }
   addMessage(message) {
     if (!message) return false;
@@ -38682,12 +38733,12 @@ var UI = class {
   }
   addPlaybackActivity(activity, { notify = true } = {}) {
     if (!activity?.kind) return false;
-    const id = String(activity.id || `activity-${activity.time || Date.now()}-${activity.kind}`);
-    if (this.playbackActivityIds.has(id)) return false;
-    this.playbackActivityIds.add(id);
+    const id4 = String(activity.id || `activity-${activity.time || Date.now()}-${activity.kind}`);
+    if (this.playbackActivityIds.has(id4)) return false;
+    this.playbackActivityIds.add(id4);
     const item = {
       ...activity,
-      id,
+      id: id4,
       time: Number(activity.time || Date.now()),
       text: playbackActivityText(activity)
     };
@@ -39381,7 +39432,7 @@ window.syncinemaVoiceDiagnostics = async () => ({
   voice: voice.diagnostics(),
   mesh: await mesh.diagnostics()
 });
-if (new URLSearchParams(window.location.search).get("voiceTest") === "1") {
+if (new URLSearchParams(window.location.search).has("voiceTest")) {
   window.setInterval(async () => {
     document.documentElement.dataset.voiceDiagnostics = JSON.stringify(
       await window.syncinemaVoiceDiagnostics()
@@ -39461,18 +39512,18 @@ function wireSocket() {
       announceLocalSource();
     }
   });
-  room.on("joined", async ({ id, peers, users, playback, videoMeta, chatHistory, playbackActivities, roomId }) => {
+  room.on("joined", async ({ id: id4, peers, users, playback, videoMeta, chatHistory, playbackActivities, roomId }) => {
     const initialPlayback = playback?.hasVideo ? { ...playback, initialSync: true } : playback;
     const previousRoomId = currentRoomId;
-    selfId = id;
+    selfId = id4;
     currentRoomId = roomId || room.roomId();
     ui.setRoom(currentRoomId);
     if (isLockedDemoRoom() && voice.enabled) {
       voice.disable();
       await mesh.setLocalStream(null);
     }
-    window.syncinemaSelfId = id;
-    mesh.setSelfId(id);
+    window.syncinemaSelfId = id4;
+    mesh.setSelfId(id4);
     latestUsers = users || [];
     ui.renderUsers(users, selfId);
     updateVoicePeerTargets();
@@ -39534,12 +39585,12 @@ function wireSocket() {
     mesh.setLocalStream(voice.stream || null);
     updateVoiceConnectionStatus();
   });
-  room.on("user-left", ({ id, name }) => {
-    mesh.removePeer(id);
-    voice.removeRemotePeer(id);
-    latestUsers = latestUsers.filter((user) => user.id !== id);
+  room.on("user-left", ({ id: id4, name }) => {
+    mesh.removePeer(id4);
+    voice.removeRemotePeer(id4);
+    latestUsers = latestUsers.filter((user) => user.id !== id4);
     updateVoicePeerTargets();
-    remoteAudioStates.delete(id);
+    remoteAudioStates.delete(id4);
     updateVoiceConnectionStatus();
     if (!isLockedDemoRoom()) ui.addSystemMessage(`${name || "有人"} 退出房间`);
   });
@@ -39557,7 +39608,7 @@ function wireSocket() {
     ui.renderMessages([]);
     ui.addSystemMessage(`${event?.name || "有人"} 清理了聊天记录`);
   });
-  room.on("speaking", ({ id, speaking }) => ui.setSpeaking(id, speaking));
+  room.on("speaking", ({ id: id4, speaking }) => ui.setSpeaking(id4, speaking));
   room.on("playback", (state) => {
     rememberOnlinePlaybackLeader(state);
     sync.receive(state);

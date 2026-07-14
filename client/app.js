@@ -93,7 +93,7 @@ window.syncinemaVoiceDiagnostics = async () => ({
   mesh: await mesh.diagnostics()
 });
 
-if (new URLSearchParams(window.location.search).get("voiceTest") === "1") {
+if (new URLSearchParams(window.location.search).has("voiceTest")) {
   window.setInterval(async () => {
     document.documentElement.dataset.voiceDiagnostics = JSON.stringify(
       await window.syncinemaVoiceDiagnostics()

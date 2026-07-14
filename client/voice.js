@@ -21,7 +21,6 @@
     this.rnnoiseProcessor = null;
     this.rnnoiseInputFrame = null;
     this.rnnoiseFrameOffset = 0;
-    this.rnnoiseOutputQueue = [];
     this.rnnoiseNoticeShown = false;
     this.rnnoiseAvailable = false;
     this.rnnoiseStatus = "off";
@@ -64,7 +63,6 @@
     this.noiseReductionEnabled = this.loadNoiseReduction();
     this.ui.setNoiseControl?.({ enabled: this.noiseReductionEnabled });
     this.installPlaybackUnlock();
-    window.setTimeout(() => this.preloadRnnoiseModule(), 1200);
   }
 
   async start() {
@@ -108,10 +106,12 @@
   buildAudioConstraints() {
     const supported = navigator.mediaDevices.getSupportedConstraints?.() || {};
     const audio = {};
+    const useSoftwareDenoiser =
+      this.noiseReductionEnabled && this.useRnnoiseEngine?.() && this.rnnoiseStatus !== "failed";
 
-    if (supported.echoCancellation) audio.echoCancellation = this.noiseReductionEnabled;
-    if (supported.noiseSuppression) audio.noiseSuppression = this.noiseReductionEnabled;
-    if (supported.autoGainControl) audio.autoGainControl = this.noiseReductionEnabled;
+    if (supported.echoCancellation) audio.echoCancellation = true;
+    if (supported.noiseSuppression) audio.noiseSuppression = this.noiseReductionEnabled && !useSoftwareDenoiser;
+    if (supported.autoGainControl) audio.autoGainControl = this.noiseReductionEnabled && !useSoftwareDenoiser;
     if (supported.voiceIsolation) audio.voiceIsolation = false;
     if (supported.channelCount) audio.channelCount = { ideal: 1 };
     if (supported.sampleRate) audio.sampleRate = { ideal: 48000 };
@@ -198,19 +198,34 @@
   }
 
   async captureInputStream() {
-    if (new URLSearchParams(window.location.search).get("voiceTest") === "1") {
+    const testMode = new URLSearchParams(window.location.search).get("voiceTest");
+    if (testMode === "1" || testMode === "noise") {
       const audioContext = this.ensureAudioContext();
       await audioContext.resume?.().catch(() => {});
-      const oscillator = audioContext.createOscillator();
       const gain = audioContext.createGain();
       const destination = audioContext.createMediaStreamDestination();
-      oscillator.type = "sine";
-      oscillator.frequency.value = 440;
       gain.gain.value = 0.16;
-      oscillator.connect(gain);
+      let source;
+      if (testMode === "noise") {
+        const buffer = audioContext.createBuffer(1, audioContext.sampleRate * 2, audioContext.sampleRate);
+        const samples = buffer.getChannelData(0);
+        let seed = 0x12345678;
+        for (let index = 0; index < samples.length; index += 1) {
+          seed = (seed * 1664525 + 1013904223) >>> 0;
+          samples[index] = (seed / 0xffffffff) * 2 - 1;
+        }
+        source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+      } else {
+        source = audioContext.createOscillator();
+        source.type = "sine";
+        source.frequency.value = 440;
+      }
+      source.connect(gain);
       gain.connect(destination);
-      oscillator.start();
-      this.syntheticCapture = { oscillator, gain, destination };
+      source.start();
+      this.syntheticCapture = { source, gain, destination, mode: testMode };
       return destination.stream;
     }
     return navigator.mediaDevices.getUserMedia({
@@ -460,10 +475,7 @@
       this.lastRawRms = rms;
       meter.lastRms = rms;
       if (rms > 0.004) {
-        const now = Date.now();
-        const p2pWasSilent = now - meter.lastAudibleAt >= 550;
-        meter.lastAudibleAt = now;
-        if (p2pWasSilent) this.stopRelayPlayback(peerId);
+        meter.lastAudibleAt = Date.now();
       }
       meter.frame = requestAnimationFrame(tick);
     };
@@ -513,6 +525,7 @@
   }
 
   shouldSuppressRelayPlayback(peerId) {
+    if (this.realtimePeers.has(String(peerId || ""))) return true;
     if (!this.audioUnlocked || this.remotePlaybackBlocked) return false;
     if (!this.hasRecentP2PAudio(peerId)) return false;
 
@@ -547,7 +560,7 @@
   }
 
   relayTargetIds() {
-    return Array.from(this.expectedRemotePeers);
+    return Array.from(this.expectedRemotePeers).filter((peerId) => !this.realtimePeers.has(peerId));
   }
 
   createProcessedStream(inputStream) {
@@ -562,13 +575,13 @@
     const highpass = this.audioContext.createBiquadFilter();
     this.highpassFilter = highpass;
     highpass.type = "highpass";
-    highpass.frequency.value = this.noiseReductionEnabled ? 55 : 35;
+    highpass.frequency.value = this.noiseReductionEnabled ? 45 : 35;
     highpass.Q.value = 0.7;
 
     const lowpass = this.audioContext.createBiquadFilter();
     this.lowpassFilter = lowpass;
     lowpass.type = "lowpass";
-    lowpass.frequency.value = this.noiseReductionEnabled ? 14500 : 18000;
+    lowpass.frequency.value = this.noiseReductionEnabled ? 17000 : 19000;
     lowpass.Q.value = 0.45;
 
     const postNoiseFilter = this.audioContext.createBiquadFilter();
@@ -594,74 +607,65 @@
 
     const destination = this.audioContext.createMediaStreamDestination();
     source.connect(this.inputGain);
-    this.inputGain.connect(highpass);
     if (this.noiseReductionEnabled && this.rnnoiseProcessor) {
-      highpass.connect(lowpass);
-      lowpass.connect(this.rnnoiseProcessor);
-      this.rnnoiseProcessor.connect(postNoiseFilter);
-      postNoiseFilter.connect(compressor);
+      this.inputGain.connect(this.rnnoiseProcessor);
+      this.rnnoiseProcessor.connect(this.gateGain);
     } else {
+      this.inputGain.connect(highpass);
       highpass.connect(lowpass);
       lowpass.connect(compressor);
+      compressor.connect(this.voiceGain);
+      this.voiceGain.connect(this.gateGain);
     }
-    compressor.connect(this.voiceGain);
-    this.voiceGain.connect(this.gateGain);
     this.gateGain.connect(destination);
 
     return destination.stream;
   }
 
   webRtcStream(inputStream) {
-    // Keep the raw track for the low-latency unprocessed mode. When noise
-    // reduction is enabled, send the same processed signal used by the relay.
-    return this.noiseReductionEnabled && this.processedStream ? this.processedStream : inputStream;
-  }
-
-  async preloadRnnoiseModule() {
-    if (this.rnnoiseModule) return true;
-    try {
-      const { Rnnoise } = await import("/vendor/rnnoise/rnnoise.js?v=20260710-shiguredo-2");
-      this.rnnoiseModule = await Rnnoise.load();
-      return true;
-    } catch (error) {
-      console.warn("RNNoise preload failed", error);
-      return false;
+    if (
+      this.noiseReductionEnabled &&
+      this.rnnoiseProcessor &&
+      this.processedStream
+    ) {
+      return this.processedStream;
     }
+    return inputStream;
   }
 
   async prepareRnnoiseProcessor() {
     this.rnnoiseNode = null;
+    this.rnnoiseProcessor?.destroy?.();
     this.rnnoiseProcessor = null;
-    this.rnnoiseState?.destroy?.();
-    this.rnnoiseState = null;
-    this.rnnoiseInputFrame = null;
-    this.rnnoiseFrameOffset = 0;
-    this.rnnoiseOutputQueue = [];
     this.rnnoiseAvailable = false;
     this.rnnoiseStatus = "off";
     if (!this.noiseReductionEnabled || !this.useRnnoiseEngine()) return false;
     this.audioContext = this.ensureAudioContext();
-    if (!this.audioContext?.createScriptProcessor) {
+    if (!this.audioContext?.audioWorklet || typeof AudioWorkletNode === "undefined") {
       this.rnnoiseStatus = "unsupported";
       return false;
     }
 
     try {
-      if (!this.rnnoiseModule) {
-        await this.preloadRnnoiseModule();
-      }
-      if (!this.rnnoiseModule) throw new Error("RNNoise module unavailable");
-      const frameSize = this.rnnoiseModule.frameSize || 480;
-      this.rnnoiseState = this.rnnoiseModule.createDenoiseState();
-      this.rnnoiseInputFrame = new Float32Array(frameSize);
-      this.rnnoiseFrameOffset = 0;
-      this.rnnoiseOutputQueue = [];
-      this.rnnoiseProcessor = this.audioContext.createScriptProcessor(2048, 1, 1);
-      this.rnnoiseProcessor.onaudioprocess = (event) => this.processRnnoiseAudio(event);
+      const assets = "/vendor/noise-suppressor";
+      const [{ RnnoiseWorkletNode }, wasmBinary] = await Promise.all([
+        import("@sapphi-red/web-noise-suppressor"),
+        import("@sapphi-red/web-noise-suppressor").then(({ loadRnnoise }) =>
+          loadRnnoise({
+            url: `${assets}/rnnoise.wasm`,
+            simdUrl: `${assets}/rnnoise_simd.wasm`
+          })
+        ),
+        this.audioContext.audioWorklet.addModule(`${assets}/rnnoiseWorklet.js?v=20260715-vad3`)
+      ]);
+      this.rnnoiseProcessor = new RnnoiseWorkletNode(this.audioContext, {
+        maxChannels: 1,
+        wasmBinary
+      });
       this.rnnoiseAvailable = true;
       this.rnnoiseStatus = "ready";
       if (!this.rnnoiseNoticeShown) {
-        this.ui.addSystemMessage("RNNoise 强力降噪已启用");
+        this.ui.addSystemMessage("RNNoise 音频线程降噪已启用");
         this.rnnoiseNoticeShown = true;
       }
       return true;
@@ -677,45 +681,12 @@
     return localStorage.getItem("pc:noise-engine") !== "off";
   }
 
-  processRnnoiseAudio(event) {
-    const input = event.inputBuffer.getChannelData(0);
-    const output = event.outputBuffer.getChannelData(0);
-    if (!this.rnnoiseState || !this.rnnoiseInputFrame) {
-      output.set(input);
-      return;
-    }
-
-    for (let index = 0; index < output.length; index += 1) {
-      const sample = Math.max(-1, Math.min(1, input[index] || 0));
-      this.rnnoiseInputFrame[this.rnnoiseFrameOffset] = sample * 32768;
-      const queued = this.rnnoiseOutputQueue.shift();
-      output[index] = queued === undefined ? sample : queued;
-      this.rnnoiseFrameOffset += 1;
-
-      if (this.rnnoiseFrameOffset >= this.rnnoiseInputFrame.length) {
-        const frame = new Float32Array(this.rnnoiseInputFrame);
-        try {
-          this.rnnoiseState.processFrame(frame);
-          for (let frameIndex = 0; frameIndex < frame.length; frameIndex += 1) {
-            this.rnnoiseOutputQueue.push(Math.max(-1, Math.min(1, frame[frameIndex] / 32768)));
-          }
-        } catch (error) {
-          console.warn("RNNoise frame failed", error);
-          output.set(input);
-          this.rnnoiseStatus = "failed";
-          return;
-        }
-        this.rnnoiseFrameOffset = 0;
-      }
-    }
-  }
-
   updateProcessingMode() {
     if (!this.audioContext) return;
     const now = this.audioContext.currentTime;
     const profile = this.processingProfile();
-    this.highpassFilter?.frequency?.setTargetAtTime(this.noiseReductionEnabled ? 55 : 35, now, 0.04);
-    this.lowpassFilter?.frequency?.setTargetAtTime(this.noiseReductionEnabled ? 14500 : 18000, now, 0.04);
+    this.highpassFilter?.frequency?.setTargetAtTime(this.noiseReductionEnabled ? 45 : 35, now, 0.04);
+    this.lowpassFilter?.frequency?.setTargetAtTime(this.noiseReductionEnabled ? 17000 : 19000, now, 0.04);
     this.postNoiseFilter?.frequency?.setTargetAtTime(9600, now, 0.04);
     if (this.compressor) {
       this.compressor.threshold.setTargetAtTime(profile.threshold, now, 0.04);
@@ -746,19 +717,17 @@
         // Ignore stale WebAudio nodes.
       }
     });
-    if (this.rnnoiseProcessor) this.rnnoiseProcessor.onaudioprocess = null;
-    this.rnnoiseState?.destroy?.();
+    this.rnnoiseProcessor?.destroy?.();
     this.rnnoiseState = null;
     this.rnnoiseProcessor = null;
     this.rnnoiseInputFrame = null;
     this.rnnoiseFrameOffset = 0;
-    this.rnnoiseOutputQueue = [];
   }
 
   processingProfile() {
     return this.noiseReductionEnabled
-      ? { threshold: -40, knee: 18, ratio: 3.2, attack: 0.003, release: 0.22, makeupGain: 1.65 }
-      : { threshold: -42, knee: 20, ratio: 2.8, attack: 0.003, release: 0.24, makeupGain: 1.4 };
+      ? { threshold: -48, knee: 24, ratio: 1.8, attack: 0.008, release: 0.32, makeupGain: 1.18 }
+      : { threshold: -48, knee: 24, ratio: 1.5, attack: 0.008, release: 0.32, makeupGain: 1.08 };
   }
 
   setOutputVolume(value) {
@@ -1187,8 +1156,8 @@
   stopSyntheticCapture() {
     if (!this.syntheticCapture) return;
     try {
-      this.syntheticCapture.oscillator?.stop?.();
-      this.syntheticCapture.oscillator?.disconnect?.();
+      this.syntheticCapture.source?.stop?.();
+      this.syntheticCapture.source?.disconnect?.();
       this.syntheticCapture.gain?.disconnect?.();
     } catch {
       // The synthetic source may already be stopped.
@@ -1209,6 +1178,10 @@
     return {
       enabled: this.enabled,
       synthetic: Boolean(this.syntheticCapture),
+      noiseReductionEnabled: this.noiseReductionEnabled,
+      rnnoiseStatus: this.rnnoiseStatus,
+      rnnoiseAvailable: this.rnnoiseAvailable,
+      rnnoiseWorklet: Boolean(this.rnnoiseProcessor),
       audioContextState: this.audioContext?.state || "none",
       rawRms: Number(this.lastRawRms || 0),
       relayTargets: this.relayTargetIds(),
