@@ -13,6 +13,7 @@
     this.lowpassFilter = null;
     this.postNoiseFilter = null;
     this.compressor = null;
+    this.voiceGain = null;
     this.rnnoiseNode = null;
     this.rnnoiseModule = null;
     this.rnnoiseState = null;
@@ -418,7 +419,12 @@
       }
       const rms = Math.sqrt(sum / samples.length);
       meter.lastRms = rms;
-      if (rms > 0.004) meter.lastAudibleAt = Date.now();
+      if (rms > 0.004) {
+        const now = Date.now();
+        const p2pWasSilent = now - meter.lastAudibleAt >= 550;
+        meter.lastAudibleAt = now;
+        if (p2pWasSilent) this.stopRelayPlayback(peerId);
+      }
       meter.frame = requestAnimationFrame(tick);
     };
     tick();
@@ -467,13 +473,12 @@
   }
 
   shouldSuppressRelayPlayback(peerId) {
-    if (this.realtimePeers.has(String(peerId || ""))) return true;
     if (!this.audioUnlocked || this.remotePlaybackBlocked) return false;
     if (!this.hasRecentP2PAudio(peerId)) return false;
 
     const audio = this.remoteAudios.get(peerId);
     if (!audio) return false;
-    return !audio.paused && audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+    return !audio.paused && audio.readyState >= 2;
   }
 
   setExpectedRemotePeers(peerIds = []) {
@@ -492,7 +497,6 @@
     const id = String(peerId);
     if (connected) {
       this.realtimePeers.set(id, Date.now());
-      this.stopRelayPlayback(id);
     } else {
       this.realtimePeers.delete(id);
     }
@@ -503,7 +507,7 @@
   }
 
   relayTargetIds() {
-    return Array.from(this.expectedRemotePeers).filter((peerId) => !this.realtimePeers.has(peerId));
+    return Array.from(this.expectedRemotePeers);
   }
 
   createProcessedStream(inputStream) {
@@ -535,11 +539,15 @@
 
     const compressor = this.audioContext.createDynamicsCompressor();
     this.compressor = compressor;
-    compressor.threshold.value = this.noiseReductionEnabled ? -26 : -32;
-    compressor.knee.value = 30;
-    compressor.ratio.value = this.noiseReductionEnabled ? 1.18 : 1.1;
-    compressor.attack.value = 0.004;
-    compressor.release.value = 0.3;
+    const profile = this.processingProfile();
+    compressor.threshold.value = profile.threshold;
+    compressor.knee.value = profile.knee;
+    compressor.ratio.value = profile.ratio;
+    compressor.attack.value = profile.attack;
+    compressor.release.value = profile.release;
+
+    this.voiceGain = this.audioContext.createGain();
+    this.voiceGain.gain.value = profile.makeupGain;
 
     this.gateGain = this.audioContext.createGain();
     this.gateGain.gain.value = 1;
@@ -551,12 +559,13 @@
       highpass.connect(lowpass);
       lowpass.connect(this.rnnoiseProcessor);
       this.rnnoiseProcessor.connect(postNoiseFilter);
-      postNoiseFilter.connect(this.gateGain);
+      postNoiseFilter.connect(compressor);
     } else {
       highpass.connect(lowpass);
       lowpass.connect(compressor);
-      compressor.connect(this.gateGain);
     }
+    compressor.connect(this.voiceGain);
+    this.voiceGain.connect(this.gateGain);
     this.gateGain.connect(destination);
 
     return destination.stream;
@@ -658,13 +667,15 @@
   updateProcessingMode() {
     if (!this.audioContext) return;
     const now = this.audioContext.currentTime;
+    const profile = this.processingProfile();
     this.highpassFilter?.frequency?.setTargetAtTime(this.noiseReductionEnabled ? 55 : 35, now, 0.04);
     this.lowpassFilter?.frequency?.setTargetAtTime(this.noiseReductionEnabled ? 14500 : 18000, now, 0.04);
     this.postNoiseFilter?.frequency?.setTargetAtTime(9600, now, 0.04);
     if (this.compressor) {
-      this.compressor.threshold.setTargetAtTime(this.noiseReductionEnabled ? -26 : -32, now, 0.04);
-      this.compressor.ratio.setTargetAtTime(this.noiseReductionEnabled ? 1.18 : 1.1, now, 0.04);
+      this.compressor.threshold.setTargetAtTime(profile.threshold, now, 0.04);
+      this.compressor.ratio.setTargetAtTime(profile.ratio, now, 0.04);
     }
+    this.voiceGain?.gain?.setTargetAtTime(profile.makeupGain, now, 0.04);
     if (!this.noiseReductionEnabled && this.gateGain) {
       this.gateGain.gain.setTargetAtTime(this.enabled ? 1 : 0, now, 0.025);
     }
@@ -678,6 +689,7 @@
       this.lowpassFilter,
       this.postNoiseFilter,
       this.compressor,
+      this.voiceGain,
       this.rnnoiseNode,
       this.rnnoiseProcessor,
       this.gateGain
@@ -695,6 +707,12 @@
     this.rnnoiseInputFrame = null;
     this.rnnoiseFrameOffset = 0;
     this.rnnoiseOutputQueue = [];
+  }
+
+  processingProfile() {
+    return this.noiseReductionEnabled
+      ? { threshold: -40, knee: 18, ratio: 3.2, attack: 0.003, release: 0.22, makeupGain: 1.65 }
+      : { threshold: -42, knee: 20, ratio: 2.8, attack: 0.003, release: 0.24, makeupGain: 1.4 };
   }
 
   setOutputVolume(value) {

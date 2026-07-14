@@ -7,17 +7,29 @@ const routing = {
 };
 assert.deepEqual(
   VoiceManager.prototype.relayTargetIds.call(routing),
-  ["relay-peer"],
-  "socket PCM must only target peers without a realtime WebRTC connection"
+  ["p2p-peer", "relay-peer"],
+  "socket PCM must remain available until the receiver confirms audible WebRTC audio"
 );
 assert.equal(
   VoiceManager.prototype.shouldSuppressRelayPlayback.call({
     realtimePeers: routing.realtimePeers,
     audioUnlocked: false,
-    remotePlaybackBlocked: true
+    remotePlaybackBlocked: true,
+    hasRecentP2PAudio: () => false
+  }, "p2p-peer"),
+  false,
+  "a connected but silent WebRTC path must not suppress relay audio"
+);
+assert.equal(
+  VoiceManager.prototype.shouldSuppressRelayPlayback.call({
+    realtimePeers: routing.realtimePeers,
+    audioUnlocked: true,
+    remotePlaybackBlocked: false,
+    hasRecentP2PAudio: () => true,
+    remoteAudios: new Map([["p2p-peer", { paused: false, readyState: 2 }]])
   }, "p2p-peer"),
   true,
-  "queued socket audio must be suppressed immediately after WebRTC connects"
+  "audible WebRTC audio must suppress duplicate relay playback"
 );
 
 function fakeGain() {
@@ -103,5 +115,12 @@ assert.equal(
   true,
   "a suspended capture context must resume automatically"
 );
+
+const plainVoiceProfile = VoiceManager.prototype.processingProfile.call({ noiseReductionEnabled: false });
+const denoisedVoiceProfile = VoiceManager.prototype.processingProfile.call({ noiseReductionEnabled: true });
+assert.ok(plainVoiceProfile.ratio > 2, "keyboard transients must be compressed on the plain voice path");
+assert.ok(plainVoiceProfile.makeupGain > 1, "quiet speech must receive makeup gain on the plain voice path");
+assert.ok(denoisedVoiceProfile.ratio > 2, "keyboard transients must be compressed after denoising");
+assert.ok(denoisedVoiceProfile.makeupGain > 1, "denoised speech must receive makeup gain");
 
 console.log("Voice routing tests passed");
