@@ -363,11 +363,15 @@
     return this.audioContext;
   }
 
-  async resumeCaptureContext() {
+  async resumeCaptureContext(timeoutMs = 450) {
     const audioContext = this.audioContext;
     if (!audioContext) return false;
     if (audioContext.state !== "running") {
-      await audioContext.resume?.().catch(() => {});
+      const resume = Promise.resolve(audioContext.resume?.()).catch(() => {});
+      await Promise.race([
+        resume,
+        new Promise((resolve) => globalThis.setTimeout(resolve, timeoutMs))
+      ]);
     }
     return audioContext.state === "running";
   }

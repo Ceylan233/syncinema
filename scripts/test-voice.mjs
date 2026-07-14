@@ -130,6 +130,18 @@ assert.equal(
   "a suspended capture context must resume automatically"
 );
 
+const blockedContext = {
+  state: "suspended",
+  resume: () => new Promise(() => {})
+};
+const blockedResumeStartedAt = Date.now();
+assert.equal(
+  await VoiceManager.prototype.resumeCaptureContext.call({ audioContext: blockedContext }, 20),
+  false,
+  "a blocked AudioContext resume must time out instead of hanging microphone startup"
+);
+assert.ok(Date.now() - blockedResumeStartedAt < 200, "blocked AudioContext resume must return promptly");
+
 const plainVoiceProfile = VoiceManager.prototype.processingProfile.call({ noiseReductionEnabled: false });
 const denoisedVoiceProfile = VoiceManager.prototype.processingProfile.call({ noiseReductionEnabled: true });
 assert.ok(plainVoiceProfile.ratio >= 1.5, "plain voice must keep gentle transient compression");
