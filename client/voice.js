@@ -152,7 +152,6 @@
     if (this.noiseReductionEnabled && this.rnnoiseAvailable) enabled.push("RNNoise 强力降噪");
 
     if (settings.autoGainControl) enabled.push("自动增益");
-    else unsupported.push("自动增益");
 
     if (settings.voiceIsolation) enabled.push("人声隔离");
 

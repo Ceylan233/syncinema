@@ -4408,7 +4408,6 @@ var VoiceManager = class extends EventTarget {
     if (this.noiseReductionEnabled && settings.noiseSuppression) enabled.push("浏览器降噪");
     if (this.noiseReductionEnabled && this.rnnoiseAvailable) enabled.push("RNNoise 强力降噪");
     if (settings.autoGainControl) enabled.push("自动增益");
-    else unsupported.push("自动增益");
     if (settings.voiceIsolation) enabled.push("人声隔离");
     if (enabled.length > 0) {
       this.ui.addSystemMessage(`麦克风处理已启用：${enabled.join("、")}、软件噪声门。`);

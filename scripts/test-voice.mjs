@@ -57,4 +57,21 @@ assert.equal(stopped, 1, "queued relay packets must stop when WebRTC becomes act
 assert.equal(player.sources.size, 0);
 assert.equal(player.nextTime, 2.12);
 
+const enhancementNotices = [];
+VoiceManager.prototype.reportVoiceEnhancements.call({
+  inputStream: {
+    getAudioTracks: () => [{
+      getSettings: () => ({ echoCancellation: true, autoGainControl: false })
+    }]
+  },
+  noiseReductionEnabled: false,
+  rnnoiseAvailable: false,
+  ui: { addSystemMessage: (message) => enhancementNotices.push(message) }
+});
+assert.equal(
+  enhancementNotices.some((message) => message.includes("未确认支持：自动增益")),
+  false,
+  "intentionally disabled auto gain must not be reported as unsupported"
+);
+
 console.log("Voice routing tests passed");
