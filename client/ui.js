@@ -56,9 +56,9 @@ const rootTemplate = `
     <main class="cinema-layout">
       <PlayerStage :state="state" />
       <MembersPanel :state="state" @toggle-panel="togglePanel" @rename-self="renameSelf" />
-      <ChatPanel :state="state" @toggle-panel="togglePanel" @toggle-activity-history="toggleActivityHistory" @select-command="selectCommand" />
+      <ChatPanel :state="state" @toggle-panel="togglePanel" @toggle-activity-history="toggleActivityHistory" @open-system-notifications="openSystemNotifications" @select-command="selectCommand" />
     </main>
-    <DialogLayer :state="state" @close-activity-history="closeActivityHistory" />
+    <DialogLayer :state="state" @close-activity-history="closeActivityHistory" @close-system-notifications="closeSystemNotifications" />
   </div>
 `;
 
@@ -106,6 +106,9 @@ export class UI {
       selfId: null,
       messages: [],
       historyMessageCount: 0,
+      systemNotifications: [],
+      systemNotificationVisible: false,
+      systemNotificationUnread: 0,
       playbackActivities: [],
       activityHistoryVisible: false,
       activityToast: "",
@@ -164,6 +167,8 @@ export class UI {
         togglePanel: (panel) => this.togglePanel(panel),
         toggleActivityHistory: () => this.toggleActivityHistory(),
         closeActivityHistory: () => this.closeActivityHistory(),
+        openSystemNotifications: () => this.openSystemNotifications(),
+        closeSystemNotifications: () => this.closeSystemNotifications(),
         selectCommand: (command) => this.selectCommand(command),
         renameSelf: () => document.dispatchEvent(new CustomEvent("syncinema:rename-self"))
       }),
@@ -477,15 +482,11 @@ export class UI {
     return true;
   }
 
-  renderMessages(messages = [], { preserveSystem = false } = {}) {
-    const systemMessages = preserveSystem
-      ? this.state.messages.filter((message) => message.system)
-      : [];
+  renderMessages(messages = []) {
     this.messageIds.clear();
     this.state.messages = [];
     messages.forEach((message) => this.addMessage(message));
     this.state.historyMessageCount = this.state.messages.length;
-    this.state.messages.push(...systemMessages);
     this.scrollMessages();
   }
 
@@ -496,15 +497,23 @@ export class UI {
     const lastAt = this.recentSystemMessages.get(cleanText) || 0;
     if (now - lastAt < 6000) return false;
     this.recentSystemMessages.set(cleanText, now);
-    this.state.messages.push({
+    this.state.systemNotifications.unshift({
       localKey: `system-${now}-${this.systemMessageId++}`,
-      name: "系统",
       text: cleanText,
-      time: now,
-      system: true
+      time: now
     });
-    this.scrollMessages();
+    if (this.state.systemNotifications.length > 100) this.state.systemNotifications.length = 100;
+    if (!this.state.systemNotificationVisible) this.state.systemNotificationUnread += 1;
     return true;
+  }
+
+  openSystemNotifications() {
+    this.state.systemNotificationVisible = true;
+    this.state.systemNotificationUnread = 0;
+  }
+
+  closeSystemNotifications() {
+    this.state.systemNotificationVisible = false;
   }
 
   renderPlaybackActivities(items = []) {

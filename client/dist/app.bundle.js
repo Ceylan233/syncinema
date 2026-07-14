@@ -16498,7 +16498,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
           backBufferLength: meta.live ? 20 : 30,
           maxBufferLength: meta.live ? 20 : 60,
           maxMaxBufferLength: meta.live ? 30 : 90,
-          maxBufferSize: meta.live ? 60 * 1024 * 1024 : 12 * 1024 * 1024,
+          maxBufferSize: meta.live ? 60 * 1024 * 1024 : 48 * 1024 * 1024,
           startFragPrefetch: !meta.live,
           liveSyncDurationCount: 6,
           liveMaxLatencyDurationCount: 20,
@@ -18303,7 +18303,7 @@ var ChatPanel = {
   props: {
     state: { type: Object, required: true }
   },
-  emits: ["toggle-panel", "toggle-activity-history", "select-command"],
+  emits: ["toggle-panel", "toggle-activity-history", "open-system-notifications", "select-command"],
   setup() {
     return { timeLabel };
   },
@@ -18322,13 +18322,26 @@ var ChatPanel = {
         <div id="messages" class="messages">
           <div v-if="state.messages.length === 0" class="chat-empty">还没有消息</div>
           <template v-for="(message, index) in state.messages" :key="message.localKey">
-            <div :class="['message', { 'system-message': message.system }]">
-              <div class="message-meta">{{ message.system ? '系统' : message.name }} · {{ timeLabel(message.time) }}</div>
+            <div class="message">
+              <div class="message-meta">{{ message.name }} · {{ timeLabel(message.time) }}</div>
               <div class="message-text">{{ message.text }}</div>
             </div>
             <div v-if="index === state.historyMessageCount - 1" class="history-divider">—— 历史消息 ——</div>
           </template>
         </div>
+        <button
+          v-if="state.systemNotifications.length"
+          class="system-notification-summary"
+          type="button"
+          title="查看系统通知"
+          @click="$emit('open-system-notifications')"
+        >
+          <span class="system-notification-label">系统通知</span>
+          <span class="system-notification-latest">{{ state.systemNotifications[0].text }}</span>
+          <span :class="['system-notification-count', { unread: state.systemNotificationUnread > 0 }]">
+            {{ state.systemNotificationUnread || state.systemNotifications.length }}
+          </span>
+        </button>
         <div v-if="state.commandMenuVisible" class="command-suggestions" role="listbox" aria-label="命令建议">
           <button
             v-for="(command, index) in state.commandSuggestions"
@@ -18358,7 +18371,7 @@ var DialogLayer = {
   props: {
     state: { type: Object, required: true }
   },
-  emits: ["close-activity-history"],
+  emits: ["close-activity-history", "close-system-notifications"],
   setup() {
     return { timeLabel };
   },
@@ -18560,6 +18573,25 @@ var DialogLayer = {
             <article v-for="activity in state.playbackActivities" :key="activity.id" class="activity-history-item">
               <time>{{ timeLabel(activity.time) }}</time>
               <span>{{ activity.text }}</span>
+            </article>
+          </div>
+        </section>
+      </div>
+
+      <div :class="['modal', 'system-notification-modal', { hidden: !state.systemNotificationVisible }]">
+        <section class="system-notification-card" role="dialog" aria-modal="true" aria-labelledby="systemNotificationTitle">
+          <header>
+            <div>
+              <h2 id="systemNotificationTitle">系统通知</h2>
+              <p>本次访问最近 100 条</p>
+            </div>
+            <button class="icon-button" type="button" aria-label="关闭系统通知" @click="$emit('close-system-notifications')">×</button>
+          </header>
+          <div class="system-notification-list">
+            <div v-if="state.systemNotifications.length === 0" class="system-notification-empty">暂无系统通知</div>
+            <article v-for="notice in state.systemNotifications" :key="notice.localKey" class="system-notification-item">
+              <time>{{ timeLabel(notice.time) }}</time>
+              <span>{{ notice.text }}</span>
             </article>
           </div>
         </section>
@@ -38049,9 +38081,9 @@ var rootTemplate = `
     <main class="cinema-layout">
       <PlayerStage :state="state" />
       <MembersPanel :state="state" @toggle-panel="togglePanel" @rename-self="renameSelf" />
-      <ChatPanel :state="state" @toggle-panel="togglePanel" @toggle-activity-history="toggleActivityHistory" @select-command="selectCommand" />
+      <ChatPanel :state="state" @toggle-panel="togglePanel" @toggle-activity-history="toggleActivityHistory" @open-system-notifications="openSystemNotifications" @select-command="selectCommand" />
     </main>
-    <DialogLayer :state="state" @close-activity-history="closeActivityHistory" />
+    <DialogLayer :state="state" @close-activity-history="closeActivityHistory" @close-system-notifications="closeSystemNotifications" />
   </div>
 `;
 var UI = class {
@@ -38094,6 +38126,9 @@ var UI = class {
       selfId: null,
       messages: [],
       historyMessageCount: 0,
+      systemNotifications: [],
+      systemNotificationVisible: false,
+      systemNotificationUnread: 0,
       playbackActivities: [],
       activityHistoryVisible: false,
       activityToast: "",
@@ -38151,6 +38186,8 @@ var UI = class {
         togglePanel: (panel) => this.togglePanel(panel),
         toggleActivityHistory: () => this.toggleActivityHistory(),
         closeActivityHistory: () => this.closeActivityHistory(),
+        openSystemNotifications: () => this.openSystemNotifications(),
+        closeSystemNotifications: () => this.closeSystemNotifications(),
         selectCommand: (command) => this.selectCommand(command),
         renameSelf: () => document.dispatchEvent(new CustomEvent("syncinema:rename-self"))
       }),
@@ -38435,13 +38472,11 @@ var UI = class {
     this.scrollMessages();
     return true;
   }
-  renderMessages(messages = [], { preserveSystem = false } = {}) {
-    const systemMessages = preserveSystem ? this.state.messages.filter((message) => message.system) : [];
+  renderMessages(messages = []) {
     this.messageIds.clear();
     this.state.messages = [];
     messages.forEach((message) => this.addMessage(message));
     this.state.historyMessageCount = this.state.messages.length;
-    this.state.messages.push(...systemMessages);
     this.scrollMessages();
   }
   addSystemMessage(text) {
@@ -38451,15 +38486,21 @@ var UI = class {
     const lastAt = this.recentSystemMessages.get(cleanText) || 0;
     if (now - lastAt < 6e3) return false;
     this.recentSystemMessages.set(cleanText, now);
-    this.state.messages.push({
+    this.state.systemNotifications.unshift({
       localKey: `system-${now}-${this.systemMessageId++}`,
-      name: "系统",
       text: cleanText,
-      time: now,
-      system: true
+      time: now
     });
-    this.scrollMessages();
+    if (this.state.systemNotifications.length > 100) this.state.systemNotifications.length = 100;
+    if (!this.state.systemNotificationVisible) this.state.systemNotificationUnread += 1;
     return true;
+  }
+  openSystemNotifications() {
+    this.state.systemNotificationVisible = true;
+    this.state.systemNotificationUnread = 0;
+  }
+  closeSystemNotifications() {
+    this.state.systemNotificationVisible = false;
   }
   renderPlaybackActivities(items = []) {
     this.playbackActivityIds.clear();

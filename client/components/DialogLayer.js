@@ -5,7 +5,7 @@ export const DialogLayer = {
   props: {
     state: { type: Object, required: true }
   },
-  emits: ["close-activity-history"],
+  emits: ["close-activity-history", "close-system-notifications"],
   setup() {
     return { timeLabel };
   },
@@ -207,6 +207,25 @@ export const DialogLayer = {
             <article v-for="activity in state.playbackActivities" :key="activity.id" class="activity-history-item">
               <time>{{ timeLabel(activity.time) }}</time>
               <span>{{ activity.text }}</span>
+            </article>
+          </div>
+        </section>
+      </div>
+
+      <div :class="['modal', 'system-notification-modal', { hidden: !state.systemNotificationVisible }]">
+        <section class="system-notification-card" role="dialog" aria-modal="true" aria-labelledby="systemNotificationTitle">
+          <header>
+            <div>
+              <h2 id="systemNotificationTitle">系统通知</h2>
+              <p>本次访问最近 100 条</p>
+            </div>
+            <button class="icon-button" type="button" aria-label="关闭系统通知" @click="$emit('close-system-notifications')">×</button>
+          </header>
+          <div class="system-notification-list">
+            <div v-if="state.systemNotifications.length === 0" class="system-notification-empty">暂无系统通知</div>
+            <article v-for="notice in state.systemNotifications" :key="notice.localKey" class="system-notification-item">
+              <time>{{ timeLabel(notice.time) }}</time>
+              <span>{{ notice.text }}</span>
             </article>
           </div>
         </section>

@@ -5,7 +5,7 @@ export const ChatPanel = {
   props: {
     state: { type: Object, required: true }
   },
-  emits: ["toggle-panel", "toggle-activity-history", "select-command"],
+  emits: ["toggle-panel", "toggle-activity-history", "open-system-notifications", "select-command"],
   setup() {
     return { timeLabel };
   },
@@ -24,13 +24,26 @@ export const ChatPanel = {
         <div id="messages" class="messages">
           <div v-if="state.messages.length === 0" class="chat-empty">还没有消息</div>
           <template v-for="(message, index) in state.messages" :key="message.localKey">
-            <div :class="['message', { 'system-message': message.system }]">
-              <div class="message-meta">{{ message.system ? '系统' : message.name }} · {{ timeLabel(message.time) }}</div>
+            <div class="message">
+              <div class="message-meta">{{ message.name }} · {{ timeLabel(message.time) }}</div>
               <div class="message-text">{{ message.text }}</div>
             </div>
             <div v-if="index === state.historyMessageCount - 1" class="history-divider">—— 历史消息 ——</div>
           </template>
         </div>
+        <button
+          v-if="state.systemNotifications.length"
+          class="system-notification-summary"
+          type="button"
+          title="查看系统通知"
+          @click="$emit('open-system-notifications')"
+        >
+          <span class="system-notification-label">系统通知</span>
+          <span class="system-notification-latest">{{ state.systemNotifications[0].text }}</span>
+          <span :class="['system-notification-count', { unread: state.systemNotificationUnread > 0 }]">
+            {{ state.systemNotificationUnread || state.systemNotifications.length }}
+          </span>
+        </button>
         <div v-if="state.commandMenuVisible" class="command-suggestions" role="listbox" aria-label="命令建议">
           <button
             v-for="(command, index) in state.commandSuggestions"

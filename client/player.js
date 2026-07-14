@@ -668,7 +668,7 @@ export class CinemaPlayer extends EventTarget {
           backBufferLength: meta.live ? 20 : 30,
           maxBufferLength: meta.live ? 20 : 60,
           maxMaxBufferLength: meta.live ? 30 : 90,
-          maxBufferSize: meta.live ? 60 * 1024 * 1024 : 12 * 1024 * 1024,
+          maxBufferSize: meta.live ? 60 * 1024 * 1024 : 48 * 1024 * 1024,
           startFragPrefetch: !meta.live,
           liveSyncDurationCount: 6,
           liveMaxLatencyDurationCount: 20,

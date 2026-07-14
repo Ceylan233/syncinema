@@ -922,6 +922,59 @@ select option:hover {
   background: rgba(255, 255, 255, 0.22);
 }
 
+.system-notification-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 20px);
+  min-height: 36px;
+  margin: 0 10px 8px;
+  padding: 7px 9px;
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.08);
+  color: rgba(226, 232, 240, 0.82);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.system-notification-summary:hover {
+  border-color: rgba(125, 211, 252, 0.42);
+  background: rgba(56, 189, 248, 0.13);
+}
+
+.system-notification-label {
+  color: #bae6fd;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.system-notification-latest {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-notification-count {
+  min-width: 20px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  color: rgba(226, 232, 240, 0.7);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.system-notification-count.unread {
+  background: rgba(56, 189, 248, 0.22);
+  color: #e0f2fe;
+}
+
 .message {
   display: grid;
   gap: 4px;
@@ -3776,7 +3829,8 @@ body {
   text-align: center;
 }
 
-.activity-history-card {
+.activity-history-card,
+.system-notification-card {
   width: min(520px, calc(100vw - 28px));
   max-height: min(620px, calc(100dvh - 36px));
   overflow: hidden;
@@ -3787,7 +3841,8 @@ body {
   color: #f8fafc;
 }
 
-.activity-history-card > header {
+.activity-history-card > header,
+.system-notification-card > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3797,21 +3852,26 @@ body {
 }
 
 .activity-history-card h2,
-.activity-history-card p {
+.activity-history-card p,
+.system-notification-card h2,
+.system-notification-card p {
   margin: 0;
 }
 
-.activity-history-card h2 {
+.activity-history-card h2,
+.system-notification-card h2 {
   font-size: 17px;
 }
 
-.activity-history-card p {
+.activity-history-card p,
+.system-notification-card p {
   margin-top: 3px;
   color: rgba(255, 255, 255, 0.48);
   font-size: 12px;
 }
 
-.activity-history-list {
+.activity-history-list,
+.system-notification-list {
   display: grid;
   gap: 0;
   max-height: min(500px, calc(100dvh - 150px));
@@ -3819,7 +3879,8 @@ body {
   overscroll-behavior: contain;
 }
 
-.activity-history-item {
+.activity-history-item,
+.system-notification-item {
   display: grid;
   grid-template-columns: 142px minmax(0, 1fr);
   gap: 12px;
@@ -3828,17 +3889,20 @@ body {
   font-size: 13px;
 }
 
-.activity-history-item time {
+.activity-history-item time,
+.system-notification-item time {
   color: rgba(125, 211, 252, 0.7);
   font-variant-numeric: tabular-nums;
 }
 
-.activity-history-item span {
+.activity-history-item span,
+.system-notification-item span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.activity-history-empty {
+.activity-history-empty,
+.system-notification-empty {
   padding: 42px 18px;
   color: rgba(255, 255, 255, 0.45);
   text-align: center;
@@ -4139,7 +4203,8 @@ body {
     font-size: 12px;
   }
 
-  .activity-history-item {
+  .activity-history-item,
+  .system-notification-item {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
     padding: 11px 14px;
