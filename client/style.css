@@ -5464,9 +5464,18 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  color: transparent !important;
   appearance: none !important;
   -webkit-appearance: none !important;
   transform: translate(-50%, -50%) rotate(-90deg) !important;
+}
+
+.volume-flyout input[type="range"]:focus,
+.volume-flyout input[type="range"]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .top-volume-control.volume-popover .volume-flyout input[type="range"] {
@@ -5484,6 +5493,13 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
   border: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.28);
+  box-shadow: none;
+}
+
+.volume-flyout input[type="range"]::-webkit-slider-container {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .volume-flyout input[type="range"]::-webkit-slider-thumb {
@@ -5524,7 +5540,7 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
 /* Keep the player controls compact while reserving fixed cells for the buttons. */
 @media (min-width: 861px) {
   .video-frame .controls {
-    grid-template-columns: auto auto auto minmax(0, 1fr) 72px 86px 86px 34px 34px auto !important;
+    grid-template-columns: auto auto auto minmax(130px, 180px) minmax(0, 1fr) 72px 86px 86px 34px 34px auto !important;
     grid-template-areas:
       "progress progress progress progress progress progress progress progress progress progress progress"
       "play choose source danmaku . rate fit quality video-volume voice-volume fullscreen" !important;
@@ -5661,5 +5677,32 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
     min-height: 104px !important;
     padding-top: 20px !important;
     gap: 5px !important;
+  }
+}
+
+@media (max-width: 860px) {
+  .stage.audit-room .video-frame:not(:fullscreen):not(:-webkit-full-screen) .controls {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    grid-template-rows: auto 34px 34px !important;
+    grid-template-areas:
+      "progress progress progress progress progress"
+      "play play fullscreen fullscreen video-volume"
+      "danmaku danmaku rate fit quality" !important;
+    min-height: 118px !important;
+    gap: 6px !important;
+    padding: 8px max(8px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right)) !important;
+  }
+
+  .stage.audit-room .video-frame:not(:fullscreen):not(:-webkit-full-screen) .controls #playButton {
+    grid-area: play !important;
+  }
+
+  .stage.audit-room .video-frame:not(:fullscreen):not(:-webkit-full-screen) .controls #fullscreenButton {
+    grid-area: fullscreen !important;
+  }
+
+  .stage.audit-room .video-frame:not(:fullscreen):not(:-webkit-full-screen) .controls .video-volume-control {
+    grid-area: video-volume !important;
+    justify-self: center !important;
   }
 }
