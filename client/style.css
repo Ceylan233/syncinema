@@ -5403,10 +5403,10 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
   max-height: 136px !important;
   margin: 0 !important;
   padding: 12px 10px !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border: 0 !important;
   border-radius: 8px !important;
-  background: rgba(12, 14, 19, 0.98) !important;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4) !important;
+  background: transparent !important;
+  box-shadow: none !important;
   box-sizing: border-box !important;
   opacity: 0 !important;
   visibility: hidden !important;
@@ -5508,12 +5508,15 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
 @container (max-width: 980px) {
   @media (min-width: 861px) {
     .video-frame .controls {
-      grid-template-columns: repeat(11, minmax(0, 1fr)) !important;
+      grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+      grid-template-rows: minmax(28px, auto) 36px 34px !important;
       grid-template-areas:
-        "progress progress progress progress progress progress progress progress progress progress progress"
-        "play choose source danmaku danmaku rate fit quality video-volume voice-volume fullscreen" !important;
-      gap: 6px !important;
-      padding-inline: 10px !important;
+        "progress progress progress progress progress progress progress progress progress progress"
+        "play play choose choose source source danmaku danmaku danmaku fullscreen"
+        "rate rate fit fit quality quality video-volume video-volume voice-volume voice-volume" !important;
+      min-height: 132px !important;
+      gap: 6px 8px !important;
+      padding: 8px 12px 10px !important;
     }
 
     .video-frame .controls .volume-popover {
