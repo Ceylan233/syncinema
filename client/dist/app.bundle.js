@@ -5042,6 +5042,7 @@ var VoiceManager = class extends EventTarget {
   setOutputVolume(value2) {
     this.outputVolume = Math.min(1, Math.max(0, value2));
     localStorage.setItem("pc:voice-volume", String(this.outputVolume));
+    if (this.ui?.voiceVolume) this.ui.voiceVolume.value = Math.round(this.outputVolume * 100);
     document.querySelectorAll("audio[data-peer-id]").forEach((audio) => {
       audio.volume = this.outputVolume;
       this.playRemoteAudio(audio);
@@ -5049,13 +5050,16 @@ var VoiceManager = class extends EventTarget {
     for (const player2 of this.relayPlayers.values()) {
       if (player2.gain) player2.gain.gain.value = this.outputVolume;
     }
+    window.syncinemaUpdateVolumeSliders?.();
   }
   setInputVolume(value2) {
     this.inputVolume = Math.min(2, Math.max(0.25, value2));
     localStorage.setItem("pc:mic-volume", String(this.inputVolume));
+    if (this.ui?.micVolume) this.ui.micVolume.value = Math.round(this.inputVolume * 100);
     if (this.inputGain) {
       this.inputGain.gain.setTargetAtTime(this.inputVolume, this.audioContext.currentTime, 0.02);
     }
+    window.syncinemaUpdateVolumeSliders?.();
   }
   loadOutputVolume() {
     const saved = Number(localStorage.getItem("pc:voice-volume"));
@@ -40192,6 +40196,7 @@ function wireUI() {
       voice.setInputVolume(Number(ui.micVolume.value) / 100);
     });
   }
+  window.syncinemaUpdateVolumeSliders?.();
   ui.video.addEventListener("waiting", () => {
     if (!player.hasLocalSource()) remoteBuffering = true;
   });

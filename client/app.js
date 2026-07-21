@@ -800,6 +800,7 @@ function wireUI() {
       voice.setInputVolume(Number(ui.micVolume.value) / 100);
     });
   }
+  window.syncinemaUpdateVolumeSliders?.();
 
   ui.video.addEventListener("waiting", () => {
     if (!player.hasLocalSource()) remoteBuffering = true;
