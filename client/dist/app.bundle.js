@@ -4419,6 +4419,7 @@ var VoiceManager = class extends EventTarget {
     this.lastAudioUnlockNoticeAt = 0;
     this.remotePlaybackBlocked = false;
     this.remoteAudios = /* @__PURE__ */ new Map();
+    this.directPlaybackReady = /* @__PURE__ */ new Map();
     this.remoteP2PMeters = /* @__PURE__ */ new Map();
     this.expectedRemotePeers = /* @__PURE__ */ new Set();
     this.realtimePeers = /* @__PURE__ */ new Map();
@@ -4426,7 +4427,7 @@ var VoiceManager = class extends EventTarget {
     this.relaySource = null;
     this.relayInputNode = null;
     this.relaySilentGain = null;
-    this.relaySampleRate = 48e3;
+    this.relaySampleRate = 32e3;
     this.relayPlayers = /* @__PURE__ */ new Map();
     this.voicePacketSeq = 0;
     this.voicePacketsSent = 0;
@@ -4667,6 +4668,7 @@ var VoiceManager = class extends EventTarget {
     audio.volume = this.outputVolume;
     audio.srcObject = stream;
     this.remoteAudios.set(peerId, audio);
+    this.directPlaybackReady.set(peerId, false);
     this.stopRemoteP2PMeter(peerId);
     this.startRemoteP2PMeter(peerId, stream);
     this.dispatchEvent(
@@ -4759,6 +4761,7 @@ var VoiceManager = class extends EventTarget {
   playRemoteAudio(audio) {
     audio.play?.().then(() => {
       this.remotePlaybackBlocked = false;
+      if (audio.dataset.peerId) this.directPlaybackReady.set(audio.dataset.peerId, true);
       this.dispatchEvent(
         new CustomEvent("remote-audio-state", {
           detail: {
@@ -4766,11 +4769,12 @@ var VoiceManager = class extends EventTarget {
             attached: true,
             blocked: false,
             playbackReady: true,
-            playing: false
+            playing: true
           }
         })
       );
     }).catch(() => {
+      if (audio.dataset.peerId) this.directPlaybackReady.set(audio.dataset.peerId, false);
       if (this.remotePlaybackBlocked) return;
       this.remotePlaybackBlocked = true;
       this.dispatchEvent(
@@ -4847,6 +4851,7 @@ var VoiceManager = class extends EventTarget {
       audio.remove?.();
     }
     this.remoteAudios.delete(peerId);
+    this.directPlaybackReady.delete(peerId);
     const relay = this.relayPlayers.get(peerId);
     if (relay) {
       this.stopRelayPlayback(peerId);
@@ -4862,12 +4867,12 @@ var VoiceManager = class extends EventTarget {
     return Boolean(meter && Date.now() - meter.lastAudibleAt < 550 && (meter.lastRms || 0) > 4e-3);
   }
   shouldSuppressRelayPlayback(peerId) {
-    if (this.realtimePeers.has(String(peerId || ""))) return true;
     if (!this.audioUnlocked || this.remotePlaybackBlocked) return false;
-    if (!this.hasRecentP2PAudio(peerId)) return false;
     const audio = this.remoteAudios.get(peerId);
     if (!audio) return false;
-    return !audio.paused && audio.readyState >= 2;
+    const directReady = this.directPlaybackReady.get(String(peerId || ""));
+    const directPlaying = directReady && !audio.paused && audio.readyState >= 2;
+    return Boolean(directPlaying && this.hasRecentP2PAudio(peerId));
   }
   setExpectedRemotePeers(peerIds = []) {
     this.expectedRemotePeers = new Set(
@@ -4890,7 +4895,7 @@ var VoiceManager = class extends EventTarget {
     return Array.from(this.realtimePeers.keys()).filter((peerId) => this.expectedRemotePeers.has(peerId)).length;
   }
   relayTargetIds() {
-    return Array.from(this.expectedRemotePeers).filter((peerId) => !this.realtimePeers.has(peerId));
+    return Array.from(this.expectedRemotePeers);
   }
   createProcessedStream(inputStream) {
     this.audioContext = this.ensureAudioContext();
@@ -4944,10 +4949,7 @@ var VoiceManager = class extends EventTarget {
     return destination.stream;
   }
   webRtcStream(inputStream) {
-    if (this.noiseReductionEnabled && this.rnnoiseProcessor && this.processedStream) {
-      return this.processedStream;
-    }
-    return inputStream;
+    return this.processedStream || inputStream;
   }
   async prepareRnnoiseProcessor() {
     this.rnnoiseNode = null;

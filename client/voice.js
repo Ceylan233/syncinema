@@ -40,6 +40,7 @@
     this.lastAudioUnlockNoticeAt = 0;
     this.remotePlaybackBlocked = false;
     this.remoteAudios = new Map();
+    this.directPlaybackReady = new Map();
     this.remoteP2PMeters = new Map();
     this.expectedRemotePeers = new Set();
     this.realtimePeers = new Map();
@@ -47,7 +48,7 @@
     this.relaySource = null;
     this.relayInputNode = null;
     this.relaySilentGain = null;
-    this.relaySampleRate = 48000;
+    this.relaySampleRate = 32000;
     this.relayPlayers = new Map();
     this.voicePacketSeq = 0;
     this.voicePacketsSent = 0;
@@ -317,6 +318,7 @@
     audio.volume = this.outputVolume;
     audio.srcObject = stream;
     this.remoteAudios.set(peerId, audio);
+    this.directPlaybackReady.set(peerId, false);
     this.stopRemoteP2PMeter(peerId);
     this.startRemoteP2PMeter(peerId, stream);
     this.dispatchEvent(
@@ -417,6 +419,7 @@
   playRemoteAudio(audio) {
     audio.play?.().then(() => {
       this.remotePlaybackBlocked = false;
+      if (audio.dataset.peerId) this.directPlaybackReady.set(audio.dataset.peerId, true);
       this.dispatchEvent(
         new CustomEvent("remote-audio-state", {
           detail: {
@@ -424,11 +427,12 @@
             attached: true,
             blocked: false,
             playbackReady: true,
-            playing: false
+            playing: true
           }
         })
       );
     }).catch(() => {
+      if (audio.dataset.peerId) this.directPlaybackReady.set(audio.dataset.peerId, false);
       if (this.remotePlaybackBlocked) return;
       this.remotePlaybackBlocked = true;
       this.dispatchEvent(
@@ -511,6 +515,7 @@
       audio.remove?.();
     }
     this.remoteAudios.delete(peerId);
+    this.directPlaybackReady.delete(peerId);
     const relay = this.relayPlayers.get(peerId);
     if (relay) {
       this.stopRelayPlayback(peerId);
@@ -529,13 +534,12 @@
   }
 
   shouldSuppressRelayPlayback(peerId) {
-    if (this.realtimePeers.has(String(peerId || ""))) return true;
     if (!this.audioUnlocked || this.remotePlaybackBlocked) return false;
-    if (!this.hasRecentP2PAudio(peerId)) return false;
-
     const audio = this.remoteAudios.get(peerId);
     if (!audio) return false;
-    return !audio.paused && audio.readyState >= 2;
+    const directReady = this.directPlaybackReady.get(String(peerId || ""));
+    const directPlaying = directReady && !audio.paused && audio.readyState >= 2;
+    return Boolean(directPlaying && this.hasRecentP2PAudio(peerId));
   }
 
   setExpectedRemotePeers(peerIds = []) {
@@ -564,7 +568,7 @@
   }
 
   relayTargetIds() {
-    return Array.from(this.expectedRemotePeers).filter((peerId) => !this.realtimePeers.has(peerId));
+    return Array.from(this.expectedRemotePeers);
   }
 
   createProcessedStream(inputStream) {
@@ -627,14 +631,7 @@
   }
 
   webRtcStream(inputStream) {
-    if (
-      this.noiseReductionEnabled &&
-      this.rnnoiseProcessor &&
-      this.processedStream
-    ) {
-      return this.processedStream;
-    }
-    return inputStream;
+    return this.processedStream || inputStream;
   }
 
   async prepareRnnoiseProcessor() {

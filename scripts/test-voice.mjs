@@ -7,18 +7,20 @@ const routing = {
 };
 assert.deepEqual(
   VoiceManager.prototype.relayTargetIds.call(routing),
-  ["relay-peer"],
-  "socket PCM must only target peers without a connected WebRTC path"
+  ["p2p-peer", "relay-peer"],
+  "socket PCM must stay available as a fallback for every remote peer"
 );
 assert.equal(
   VoiceManager.prototype.shouldSuppressRelayPlayback.call({
     realtimePeers: routing.realtimePeers,
     audioUnlocked: false,
     remotePlaybackBlocked: true,
+    remoteAudios: new Map([["p2p-peer", { paused: true, readyState: 0 }]]),
+    directPlaybackReady: new Map([["p2p-peer", false]]),
     hasRecentP2PAudio: () => false
   }, "p2p-peer"),
-  true,
-  "a connected WebRTC path must suppress duplicate relay audio"
+  false,
+  "a connected but blocked WebRTC path must not suppress relay audio"
 );
 assert.equal(
   VoiceManager.prototype.shouldSuppressRelayPlayback.call({
@@ -26,7 +28,8 @@ assert.equal(
     audioUnlocked: true,
     remotePlaybackBlocked: false,
     hasRecentP2PAudio: () => true,
-    remoteAudios: new Map([["p2p-peer", { paused: false, readyState: 2 }]])
+    remoteAudios: new Map([["p2p-peer", { paused: false, readyState: 2 }]]),
+    directPlaybackReady: new Map([["p2p-peer", true]])
   }, "p2p-peer"),
   true,
   "audible WebRTC audio must suppress duplicate relay playback"
@@ -150,10 +153,11 @@ assert.ok(denoisedVoiceProfile.ratio < 2, "denoising must avoid over-compressing
 assert.ok(denoisedVoiceProfile.makeupGain > 1, "denoised speech must receive makeup gain");
 
 const rawCaptureStream = { id: "raw-microphone" };
+const processedCaptureStream = { id: "processed-microphone" };
 assert.equal(
-  VoiceManager.prototype.webRtcStream.call({}, rawCaptureStream),
-  rawCaptureStream,
-  "WebRTC must use the raw microphone track instead of a suspendable WebAudio destination"
+  VoiceManager.prototype.webRtcStream.call({ processedStream: processedCaptureStream }, rawCaptureStream),
+  processedCaptureStream,
+  "WebRTC must use the same processed microphone path as relay audio"
 );
 
 console.log("Voice routing tests passed");
