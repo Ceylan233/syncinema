@@ -16190,6 +16190,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
     this.video.defaultMuted = false;
     this.applyEffectiveVolume();
     this.ui.videoVolume.value = Math.round(this.userVolume * 100);
+    window.syncinemaUpdateVolumeSliders?.();
     this.fitMode = "contain";
     this.naturalVideoAspect = 16 / 9;
     this.fitResizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(() => this.updateVideoGeometry()) : null;
@@ -17744,6 +17745,7 @@ var CinemaPlayer = class _CinemaPlayer extends EventTarget {
   adjustVideoVolume(delta) {
     this.userVolume = Math.min(1, Math.max(0, Math.round((this.userVolume + delta) * 100) / 100));
     if (this.ui?.videoVolume) this.ui.videoVolume.value = Math.round(this.userVolume * 100);
+    window.syncinemaUpdateVolumeSliders?.();
     if (this.userVolume <= 0) {
       this.audioRestoreTimers.forEach((timer) => window.clearTimeout(timer));
       this.audioRestoreTimers = [];
@@ -38572,7 +38574,27 @@ var UI = class {
       document.querySelectorAll("[data-volume-popover]").forEach((popover) => {
         if (popover === except) return;
         popover.classList.remove("is-open");
+        popover.classList.remove("is-click-closed");
         popover.querySelector(".volume-trigger")?.setAttribute("aria-expanded", "false");
+      });
+    };
+    const updateSliderFill = (input) => {
+      if (!input) return;
+      const min = Number(input.min || 0);
+      const max = Number(input.max || 100);
+      const value2 = Number(input.value || 0);
+      const span = max - min;
+      const percent = span > 0 ? (value2 - min) / span * 100 : 0;
+      input.style.setProperty("--range-fill", `${Math.min(100, Math.max(0, percent))}%`);
+    };
+    const bindSlider = (input) => {
+      if (!input || input.dataset.volumeSliderBound === "true") return;
+      input.dataset.volumeSliderBound = "true";
+      updateSliderFill(input);
+      input.addEventListener("input", () => updateSliderFill(input));
+      input.addEventListener("change", () => updateSliderFill(input));
+      input.addEventListener("pointerdown", () => {
+        input.closest("[data-volume-popover]")?.classList.add("is-open");
       });
     };
     const bindTrigger = (trigger2) => {
@@ -38598,12 +38620,16 @@ var UI = class {
         togglePopover();
       });
     };
-    const bindCurrentTriggers = () => {
+    const bindCurrentControls = () => {
       document.querySelectorAll(".volume-trigger").forEach(bindTrigger);
+      document.querySelectorAll(".volume-flyout input[type='range']").forEach(bindSlider);
     };
-    bindCurrentTriggers();
-    this.volumePopoverObserver = new MutationObserver(bindCurrentTriggers);
+    bindCurrentControls();
+    this.volumePopoverObserver = new MutationObserver(bindCurrentControls);
     this.volumePopoverObserver.observe(document.body, { childList: true, subtree: true });
+    window.syncinemaUpdateVolumeSliders = () => {
+      document.querySelectorAll(".volume-flyout input[type='range']").forEach(updateSliderFill);
+    };
     document.addEventListener("pointerleave", (event) => {
       const popover = event.target.closest?.("[data-volume-popover]");
       popover?.classList.remove("is-click-closed");

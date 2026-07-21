@@ -92,6 +92,7 @@ export class CinemaPlayer extends EventTarget {
     this.video.defaultMuted = false;
     this.applyEffectiveVolume();
     this.ui.videoVolume.value = Math.round(this.userVolume * 100);
+    window.syncinemaUpdateVolumeSliders?.();
     this.fitMode = "contain";
     this.naturalVideoAspect = 16 / 9;
     this.fitResizeObserver = typeof ResizeObserver === "function"
@@ -1819,6 +1820,7 @@ export class CinemaPlayer extends EventTarget {
   adjustVideoVolume(delta) {
     this.userVolume = Math.min(1, Math.max(0, Math.round((this.userVolume + delta) * 100) / 100));
     if (this.ui?.videoVolume) this.ui.videoVolume.value = Math.round(this.userVolume * 100);
+    window.syncinemaUpdateVolumeSliders?.();
     if (this.userVolume <= 0) {
       this.audioRestoreTimers.forEach((timer) => window.clearTimeout(timer));
       this.audioRestoreTimers = [];

@@ -5415,12 +5415,26 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
   transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms !important;
 }
 
+.volume-flyout::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -10px;
+  left: 0;
+  height: 10px;
+}
+
 .top-volume-control.volume-popover .volume-flyout {
   top: calc(100% + 8px) !important;
   right: 0 !important;
   bottom: auto !important;
   left: auto !important;
   transform: translateY(-6px) !important;
+}
+
+.top-volume-control.volume-popover .volume-flyout::before {
+  top: -10px;
+  bottom: auto;
 }
 
 .volume-popover:hover .volume-flyout,
@@ -5448,6 +5462,9 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
 .volume-flyout input[type="range"],
 .controls .volume-popover .volume-flyout input[type="range"],
 .voice-control-cluster .volume-popover .volume-flyout input[type="range"] {
+  --range-fill: 100%;
+  --range-fill-color: var(--accent-2);
+  --range-track-color: rgba(255, 255, 255, 0.28);
   position: absolute !important;
   top: 50% !important;
   left: 50% !important;
@@ -5492,7 +5509,14 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
   height: 4px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.28);
+  background:
+    linear-gradient(
+      to right,
+      var(--range-fill-color) 0%,
+      var(--range-fill-color) var(--range-fill),
+      var(--range-track-color) var(--range-fill),
+      var(--range-track-color) 100%
+    );
   box-shadow: none;
 }
 
@@ -5519,7 +5543,7 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
   height: 4px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--range-track-color);
 }
 
 .volume-flyout input[type="range"]::-moz-range-progress {

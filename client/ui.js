@@ -260,7 +260,29 @@ export class UI {
       document.querySelectorAll("[data-volume-popover]").forEach((popover) => {
         if (popover === except) return;
         popover.classList.remove("is-open");
+        popover.classList.remove("is-click-closed");
         popover.querySelector(".volume-trigger")?.setAttribute("aria-expanded", "false");
+      });
+    };
+
+    const updateSliderFill = (input) => {
+      if (!input) return;
+      const min = Number(input.min || 0);
+      const max = Number(input.max || 100);
+      const value = Number(input.value || 0);
+      const span = max - min;
+      const percent = span > 0 ? ((value - min) / span) * 100 : 0;
+      input.style.setProperty("--range-fill", `${Math.min(100, Math.max(0, percent))}%`);
+    };
+
+    const bindSlider = (input) => {
+      if (!input || input.dataset.volumeSliderBound === "true") return;
+      input.dataset.volumeSliderBound = "true";
+      updateSliderFill(input);
+      input.addEventListener("input", () => updateSliderFill(input));
+      input.addEventListener("change", () => updateSliderFill(input));
+      input.addEventListener("pointerdown", () => {
+        input.closest("[data-volume-popover]")?.classList.add("is-open");
       });
     };
 
@@ -288,12 +310,16 @@ export class UI {
       });
     };
 
-    const bindCurrentTriggers = () => {
+    const bindCurrentControls = () => {
       document.querySelectorAll(".volume-trigger").forEach(bindTrigger);
+      document.querySelectorAll(".volume-flyout input[type='range']").forEach(bindSlider);
     };
-    bindCurrentTriggers();
-    this.volumePopoverObserver = new MutationObserver(bindCurrentTriggers);
+    bindCurrentControls();
+    this.volumePopoverObserver = new MutationObserver(bindCurrentControls);
     this.volumePopoverObserver.observe(document.body, { childList: true, subtree: true });
+    window.syncinemaUpdateVolumeSliders = () => {
+      document.querySelectorAll(".volume-flyout input[type='range']").forEach(updateSliderFill);
+    };
 
     document.addEventListener("pointerleave", (event) => {
       const popover = event.target.closest?.("[data-volume-popover]");
