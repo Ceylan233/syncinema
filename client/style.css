@@ -803,6 +803,24 @@ select option:hover {
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
+}
+
+.members::-webkit-scrollbar,
+.messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.members::-webkit-scrollbar-track,
+.messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.members::-webkit-scrollbar-thumb,
+.messages::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .member {
@@ -912,15 +930,7 @@ select option:hover {
   flex-direction: column;
   gap: 12px;
   scrollbar-width: thin;
-}
-
-.messages::-webkit-scrollbar {
-  width: 8px;
-}
-
-.messages::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
 
 .system-notification-summary {
