@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
-    "@lucide/vue": "^1.25.0",
     "@sapphi-red/web-noise-suppressor": "0.3.5",
     "compression": "^1.8.1",
     "element-plus": "^2.14.2",
