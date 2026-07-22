@@ -32080,27 +32080,129 @@ var _sfc_main167 = /* @__PURE__ */ defineComponent({
   }
 });
 var microphone_default = _sfc_main167;
-var _sfc_main280 = /* @__PURE__ */ defineComponent({
-  name: "VideoCamera",
-  __name: "video-camera",
-  setup(__props) {
-    return (_ctx, _cache) => (openBlock(), createElementBlock("svg", {
-      xmlns: "http://www.w3.org/2000/svg",
-      viewBox: "0 0 1024 1024"
-    }, [
-      createBaseVNode("path", {
-        fill: "currentColor",
-        d: "M704 768V256H128v512zm64-416 192-96v512l-192-96v128a32 32 0 0 1-32 32H96a32 32 0 0 1-32-32V224a32 32 0 0 1 32-32h640a32 32 0 0 1 32 32zm0 71.552v176.896l128 64V359.552zM192 320h192v64H192z"
-      })
-    ]));
-  }
-});
-var video_camera_default = _sfc_main280;
+
+// node_modules/@lucide/vue/dist/esm/shared/src/utils/isEmptyString.mjs
+var isEmptyString = (value2) => value2 === "";
+
+// node_modules/@lucide/vue/dist/esm/shared/src/utils/mergeClasses.mjs
+var mergeClasses = (...classes) => classes.filter((className, index, array) => {
+  return Boolean(className) && className.trim() !== "" && array.indexOf(className) === index;
+}).join(" ").trim();
+
+// node_modules/@lucide/vue/dist/esm/shared/src/utils/toKebabCase.mjs
+var toKebabCase = (string) => string.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+
+// node_modules/@lucide/vue/dist/esm/shared/src/utils/toCamelCase.mjs
+var toCamelCase = (string) => string.replace(
+  /^([A-Z])|[\s-_]+(\w)/g,
+  (match, p1, p2) => p2 ? p2.toUpperCase() : p1.toLowerCase()
+);
+
+// node_modules/@lucide/vue/dist/esm/shared/src/utils/toPascalCase.mjs
+var toPascalCase = (string) => {
+  const camelCase = toCamelCase(string);
+  return camelCase.charAt(0).toUpperCase() + camelCase.slice(1);
+};
+
+// node_modules/@lucide/vue/dist/esm/defaultAttributes.mjs
+var defaultAttributes = {
+  xmlns: "http://www.w3.org/2000/svg",
+  width: 24,
+  height: 24,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  "stroke-width": 2,
+  "stroke-linecap": "round",
+  "stroke-linejoin": "round"
+};
+
+// node_modules/@lucide/vue/dist/esm/context.mjs
+var LUCIDE_CONTEXT = /* @__PURE__ */ Symbol("lucide-icons");
+function useLucideProps() {
+  return inject(LUCIDE_CONTEXT, {});
+}
+
+// node_modules/@lucide/vue/dist/esm/Icon.mjs
+var Icon = ({
+  name,
+  iconNode,
+  "icon-node": iconNodeKebabCase,
+  absoluteStrokeWidth,
+  "absolute-stroke-width": absoluteStrokeWidthKebabCase,
+  strokeWidth,
+  "stroke-width": strokeWidthKebabCase,
+  size,
+  color,
+  ...props
+}, { slots }) => {
+  const {
+    size: contextSize,
+    color: contextColor,
+    strokeWidth: contextStrokeWidth = 2,
+    absoluteStrokeWidth: contextAbsoluteStrokeWidth = false,
+    class: contextClass = ""
+  } = useLucideProps();
+  const calculatedStrokeWidth = computed2(() => {
+    const isAbsoluteStrokeWidth = isEmptyString(absoluteStrokeWidth) || isEmptyString(absoluteStrokeWidthKebabCase) || absoluteStrokeWidth === true || absoluteStrokeWidthKebabCase === true || contextAbsoluteStrokeWidth === true;
+    const strokeWidthValue = strokeWidth || strokeWidthKebabCase || contextStrokeWidth || defaultAttributes["stroke-width"];
+    if (isAbsoluteStrokeWidth) {
+      return Number(strokeWidthValue) * 24 / Number(size ?? contextSize ?? defaultAttributes.width);
+    }
+    return strokeWidthValue;
+  });
+  return h(
+    "svg",
+    {
+      ...defaultAttributes,
+      ...props,
+      width: size ?? contextSize ?? defaultAttributes.width,
+      height: size ?? contextSize ?? defaultAttributes.height,
+      stroke: color ?? contextColor ?? defaultAttributes.stroke,
+      "stroke-width": calculatedStrokeWidth.value,
+      class: mergeClasses(
+        "lucide",
+        contextClass,
+        ...name ? [`lucide-${toKebabCase(toPascalCase(name))}-icon`, `lucide-${toKebabCase(name)}`] : ["lucide-icon"]
+      )
+    },
+    [
+      ...(iconNode ?? iconNodeKebabCase ?? []).map((child) => h(...child)),
+      ...slots.default ? [slots.default()] : []
+    ]
+  );
+};
+
+// node_modules/@lucide/vue/dist/esm/createLucideIcon.mjs
+var createLucideIcon = (iconName, iconNode) => (props, { slots, attrs }) => h(
+  Icon,
+  {
+    ...attrs,
+    ...props,
+    iconNode,
+    name: iconName
+  },
+  slots.default ? { default: slots.default } : void 0
+);
+
+// node_modules/@lucide/vue/dist/esm/icons/volume-2.mjs
+var __iconNode = [
+  [
+    "path",
+    {
+      d: "M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z",
+      key: "uqj9uw"
+    }
+  ],
+  ["path", { d: "M16 9a5 5 0 0 1 0 6", key: "1q6k2b" }],
+  ["path", { d: "M19.364 18.364a9 9 0 0 0 0-12.728", key: "ijwkga" }]
+];
+var Volume2 = createLucideIcon("volume-2", __iconNode);
 
 // client/components/PlayerStage.js?v=20260711-danmaku-settings-3
 var PlayerStage = {
   name: "PlayerStage",
-  components: { Headset: headset_default, VideoCamera: video_camera_default },
+  components: { Headset: headset_default, Volume2 },
   props: {
     state: { type: Object, required: true }
   },
@@ -32223,7 +32325,7 @@ var PlayerStage = {
           </select>
           <div class="volume-control volume-popover video-volume-control" data-volume-popover>
             <button class="volume-trigger" type="button" title="视频音量" aria-label="视频音量" aria-expanded="false">
-              <VideoCamera aria-hidden="true" />
+              <Volume2 aria-hidden="true" />
             </button>
             <div class="volume-flyout" role="group" aria-label="视频音量调节">
               <input id="videoVolume" type="range" min="0" max="100" value="100" aria-label="视频音量" />
@@ -40882,6 +40984,24 @@ vue/dist/vue.esm-bundler.js:
 
 @element-plus/icons-vue/dist/index.js:
   (*! Element Plus Icons Vue v2.3.2 *)
+
+@lucide/vue/dist/esm/shared/src/utils/isEmptyString.mjs:
+@lucide/vue/dist/esm/shared/src/utils/mergeClasses.mjs:
+@lucide/vue/dist/esm/shared/src/utils/toKebabCase.mjs:
+@lucide/vue/dist/esm/shared/src/utils/toCamelCase.mjs:
+@lucide/vue/dist/esm/shared/src/utils/toPascalCase.mjs:
+@lucide/vue/dist/esm/defaultAttributes.mjs:
+@lucide/vue/dist/esm/context.mjs:
+@lucide/vue/dist/esm/Icon.mjs:
+@lucide/vue/dist/esm/createLucideIcon.mjs:
+@lucide/vue/dist/esm/icons/volume-2.mjs:
+@lucide/vue/dist/esm/lucide-vue.mjs:
+  (**
+   * @license @lucide/vue v1.25.0 - ISC
+   *
+   * This source code is licensed under the ISC license.
+   * See the LICENSE file in the root directory of this source tree.
+   *)
 
 @vue/compiler-core/dist/compiler-core.esm-bundler.js:
   (**

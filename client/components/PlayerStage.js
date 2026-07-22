@@ -1,8 +1,9 @@
-import { Headset, VideoCamera } from "@element-plus/icons-vue";
+import { Headset } from "@element-plus/icons-vue";
+import { Volume2 } from "@lucide/vue";
 
 export const PlayerStage = {
   name: "PlayerStage",
-  components: { Headset, VideoCamera },
+  components: { Headset, Volume2 },
   props: {
     state: { type: Object, required: true }
   },
@@ -125,7 +126,7 @@ export const PlayerStage = {
           </select>
           <div class="volume-control volume-popover video-volume-control" data-volume-popover>
             <button class="volume-trigger" type="button" title="视频音量" aria-label="视频音量" aria-expanded="false">
-              <VideoCamera aria-hidden="true" />
+              <Volume2 aria-hidden="true" />
             </button>
             <div class="volume-flyout" role="group" aria-label="视频音量调节">
               <input id="videoVolume" type="range" min="0" max="100" value="100" aria-label="视频音量" />

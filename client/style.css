@@ -5748,3 +5748,87 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
     justify-self: center !important;
   }
 }
+
+/* Desktop player chrome: compact action groups with a flexible center spacer. */
+@media (min-width: 861px) {
+  .video-frame .controls,
+  .video-frame:fullscreen .controls,
+  .video-frame:-webkit-full-screen .controls,
+  .video-frame.pseudo-fullscreen .controls,
+  body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
+    display: grid !important;
+    grid-template-columns:
+      minmax(76px, max-content)
+      minmax(76px, max-content)
+      minmax(76px, max-content)
+      minmax(150px, max-content)
+      minmax(12px, 1fr)
+      72px
+      80px
+      80px
+      34px
+      34px
+      minmax(70px, max-content) !important;
+    grid-template-rows: 28px 36px !important;
+    grid-template-areas:
+      "progress progress progress progress progress progress progress progress progress progress progress"
+      "play choose source danmaku . rate fit quality video-volume voice-volume fullscreen" !important;
+    min-height: 88px !important;
+    max-height: none !important;
+    gap: 7px 8px !important;
+    padding: 8px 12px 10px !important;
+    overflow: visible !important;
+  }
+
+  .stage.audit-room .video-frame:not(:fullscreen):not(:-webkit-full-screen) .controls,
+  .stage.audit-room .video-frame:fullscreen .controls,
+  .stage.audit-room .video-frame:-webkit-full-screen .controls,
+  .stage.audit-room .video-frame.pseudo-fullscreen .controls,
+  body.pseudo-fullscreen-active > .stage.audit-room .video-frame.pseudo-fullscreen .controls {
+    grid-template-columns:
+      minmax(76px, max-content)
+      minmax(150px, max-content)
+      minmax(12px, 1fr)
+      72px
+      80px
+      80px
+      34px
+      minmax(70px, max-content) !important;
+    grid-template-areas:
+      "progress progress progress progress progress progress progress progress"
+      "play danmaku . rate fit quality video-volume fullscreen" !important;
+  }
+
+  .video-frame .controls .progress-wrap {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .video-frame .controls #playButton,
+  .video-frame .controls #chooseVideoButton,
+  .video-frame .controls #onlineSourceButton,
+  .video-frame .controls #fullscreenButton,
+  .video-frame .controls .danmaku-control-group {
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    justify-self: stretch !important;
+  }
+
+  .video-frame .controls #rateSelect,
+  .video-frame .controls #fitSelect,
+  .video-frame .controls #qualitySelect {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .video-frame .controls .volume-popover {
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    justify-self: center !important;
+  }
+}
