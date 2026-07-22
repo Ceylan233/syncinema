@@ -5832,3 +5832,35 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
     justify-self: center !important;
   }
 }
+
+/* Give the wrapped desktop status row real layout space instead of overflowing onto the player. */
+@media (min-width: 861px) and (max-width: 1120px) {
+  .topbar {
+    height: auto !important;
+    min-height: 96px;
+    flex: 0 0 auto;
+    align-content: center;
+  }
+
+  .topbar-main,
+  .status-line {
+    width: 100%;
+  }
+
+  .status-line {
+    flex-wrap: nowrap;
+  }
+
+  .voice-pill {
+    min-width: 0;
+    max-width: min(42vw, 320px);
+  }
+
+  .cinema-layout {
+    min-height: calc(100dvh - 138px);
+  }
+
+  .video-frame {
+    max-height: calc(100dvh - 196px);
+  }
+}
