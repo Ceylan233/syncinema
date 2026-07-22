@@ -5616,6 +5616,14 @@ body.pseudo-fullscreen-active > .video-frame.pseudo-fullscreen .controls {
     .video-frame .controls .volume-popover {
       justify-self: center !important;
     }
+
+    .stage.audit-room .video-frame:not(:fullscreen):not(:-webkit-full-screen) .controls {
+      grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+      grid-template-areas:
+        "progress progress progress progress progress progress"
+        "play play danmaku danmaku fullscreen fullscreen"
+        "rate rate fit quality video-volume video-volume" !important;
+    }
   }
 }
 
