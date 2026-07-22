@@ -1,39 +1,66 @@
 import assert from "node:assert/strict";
 import { VoiceManager } from "../client/voice.js";
 
+const now = Date.now();
 const routing = {
   expectedRemotePeers: new Set(["p2p-peer", "relay-peer"]),
-  realtimePeers: new Map([["p2p-peer", Date.now()]])
+  realtimePeers: new Map([["p2p-peer", now]]),
+  voiceRoutes: new Map([
+    ["p2p-peer", { mode: "webrtc-primary", connected: true, connectedSince: now - 10000, unhealthySince: 0, relaySince: 0, changedAt: now - 10000 }],
+    ["relay-peer", { mode: "relay-active", connected: false, connectedSince: 0, unhealthySince: now - 10000, relaySince: now - 5000, changedAt: now - 5000 }]
+  ]),
+  ensureVoiceRoute: VoiceManager.prototype.ensureVoiceRoute,
+  refreshVoiceRoute: VoiceManager.prototype.refreshVoiceRoute,
+  setVoiceRouteMode: VoiceManager.prototype.setVoiceRouteMode,
+  applyVoiceRouteOutput: () => {}
 };
 assert.deepEqual(
   VoiceManager.prototype.relayTargetIds.call(routing),
-  ["p2p-peer", "relay-peer"],
-  "socket PCM must stay available as a fallback for every remote peer"
+  ["relay-peer"],
+  "socket PCM must only be sent to peers with an active relay route"
 );
 assert.equal(
   VoiceManager.prototype.shouldSuppressRelayPlayback.call({
-    realtimePeers: routing.realtimePeers,
-    audioUnlocked: false,
-    remotePlaybackBlocked: true,
-    remoteAudios: new Map([["p2p-peer", { paused: true, readyState: 0 }]]),
-    directPlaybackReady: new Map([["p2p-peer", false]]),
-    hasRecentP2PAudio: () => false
-  }, "p2p-peer"),
-  false,
-  "a connected but blocked WebRTC path must not suppress relay audio"
-);
-assert.equal(
-  VoiceManager.prototype.shouldSuppressRelayPlayback.call({
-    realtimePeers: routing.realtimePeers,
-    audioUnlocked: true,
-    remotePlaybackBlocked: false,
-    hasRecentP2PAudio: () => true,
-    remoteAudios: new Map([["p2p-peer", { paused: false, readyState: 2 }]]),
-    directPlaybackReady: new Map([["p2p-peer", true]])
+    ...routing
   }, "p2p-peer"),
   true,
-  "audible WebRTC audio must suppress duplicate relay playback"
+  "WebRTC primary must suppress relay packets even while the speaker is silent"
 );
+assert.equal(
+  VoiceManager.prototype.shouldSuppressRelayPlayback.call({
+    ...routing
+  }, "relay-peer"),
+  false,
+  "an active relay route must accept relay packets"
+);
+
+const pending = {
+  mode: "relay-pending",
+  connected: false,
+  connectedSince: 0,
+  unhealthySince: now - 2000,
+  relaySince: 0,
+  changedAt: now - 2000
+};
+const pendingHarness = {
+  voiceRoutes: new Map([["peer", pending]]),
+  ensureVoiceRoute: VoiceManager.prototype.ensureVoiceRoute,
+  setVoiceRouteMode: VoiceManager.prototype.setVoiceRouteMode,
+  applyVoiceRouteOutput: () => {}
+};
+VoiceManager.prototype.refreshVoiceRoute.call(pendingHarness, "peer", now);
+assert.equal(pending.mode, "relay-pending", "brief network jitter must not switch to relay");
+VoiceManager.prototype.refreshVoiceRoute.call(pendingHarness, "peer", now + 3500);
+assert.equal(pending.mode, "relay-active", "a sustained WebRTC failure must switch to relay");
+
+pending.connected = true;
+pending.connectedSince = now + 4000;
+VoiceManager.prototype.refreshVoiceRoute.call(pendingHarness, "peer", now + 8000);
+assert.equal(pending.mode, "webrtc-recovering", "a recovered connection must remain on relay during stabilization");
+VoiceManager.prototype.refreshVoiceRoute.call(pendingHarness, "peer", now + 13000);
+assert.equal(pending.mode, "webrtc-recovering", "relay must be held long enough to avoid route flapping");
+VoiceManager.prototype.refreshVoiceRoute.call(pendingHarness, "peer", now + 21000);
+assert.equal(pending.mode, "webrtc-primary", "stable WebRTC must replace relay in one transition");
 
 function fakeGain() {
   const calls = [];

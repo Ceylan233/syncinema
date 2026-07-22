@@ -4092,6 +4092,16 @@ var PeerMesh = class extends EventTarget {
     peer.audioTransceiver = existing || peer.pc.addTransceiver("audio", {
       direction: this.localStream?.getAudioTracks?.()[0] ? "sendrecv" : "recvonly"
     });
+    if (!existing && typeof peer.audioTransceiver.setCodecPreferences === "function") {
+      const codecs = globalThis.RTCRtpReceiver?.getCapabilities?.("audio")?.codecs || [];
+      const opus = codecs.filter((codec) => codec.mimeType?.toLowerCase() === "audio/opus");
+      if (opus.length > 0) {
+        peer.audioTransceiver.setCodecPreferences([
+          ...opus,
+          ...codecs.filter((codec) => codec.mimeType?.toLowerCase() !== "audio/opus")
+        ]);
+      }
+    }
     return peer.audioTransceiver;
   }
   sendPeerSignal(peer, payload) {
@@ -4423,6 +4433,7 @@ var VoiceManager = class extends EventTarget {
     this.remoteP2PMeters = /* @__PURE__ */ new Map();
     this.expectedRemotePeers = /* @__PURE__ */ new Set();
     this.realtimePeers = /* @__PURE__ */ new Map();
+    this.voiceRoutes = /* @__PURE__ */ new Map();
     this.relayProcessor = null;
     this.relaySource = null;
     this.relayInputNode = null;
@@ -4656,6 +4667,8 @@ var VoiceManager = class extends EventTarget {
     return this.stream;
   }
   attachRemoteStream(peerId, stream) {
+    peerId = String(peerId || "");
+    if (!peerId) return;
     let audio = document.querySelector(`audio[data-peer-id="${peerId}"]`);
     if (!audio) {
       audio = document.createElement("audio");
@@ -4671,6 +4684,7 @@ var VoiceManager = class extends EventTarget {
     this.directPlaybackReady.set(peerId, false);
     this.stopRemoteP2PMeter(peerId);
     this.startRemoteP2PMeter(peerId, stream);
+    this.applyVoiceRouteOutput(peerId);
     this.dispatchEvent(
       new CustomEvent("remote-audio-state", {
         detail: {
@@ -4841,6 +4855,7 @@ var VoiceManager = class extends EventTarget {
     this.remoteP2PMeters.delete(peerId);
   }
   removeRemotePeer(peerId) {
+    peerId = String(peerId || "");
     this.setRealtimePeer(peerId, false);
     this.expectedRemotePeers.delete(peerId);
     this.stopRemoteP2PMeter(peerId);
@@ -4861,18 +4876,15 @@ var VoiceManager = class extends EventTarget {
       }
     }
     this.relayPlayers.delete(peerId);
+    this.voiceRoutes.delete(peerId);
   }
   hasRecentP2PAudio(peerId) {
     const meter = this.remoteP2PMeters.get(peerId);
     return Boolean(meter && Date.now() - meter.lastAudibleAt < 550 && (meter.lastRms || 0) > 4e-3);
   }
   shouldSuppressRelayPlayback(peerId) {
-    if (!this.audioUnlocked || this.remotePlaybackBlocked) return false;
-    const audio = this.remoteAudios.get(peerId);
-    if (!audio) return false;
-    const directReady = this.directPlaybackReady.get(String(peerId || ""));
-    const directPlaying = directReady && !audio.paused && audio.readyState >= 2;
-    return Boolean(directPlaying && this.hasRecentP2PAudio(peerId));
+    const route = this.refreshVoiceRoute(peerId);
+    return !route || !["relay-active", "webrtc-recovering"].includes(route.mode);
   }
   setExpectedRemotePeers(peerIds = []) {
     this.expectedRemotePeers = new Set(
@@ -4881,21 +4893,96 @@ var VoiceManager = class extends EventTarget {
     for (const peerId of Array.from(this.realtimePeers.keys())) {
       if (!this.expectedRemotePeers.has(peerId)) this.realtimePeers.delete(peerId);
     }
+    for (const peerId of Array.from(this.voiceRoutes.keys())) {
+      if (!this.expectedRemotePeers.has(peerId)) this.voiceRoutes.delete(peerId);
+    }
+    for (const peerId of this.expectedRemotePeers) this.ensureVoiceRoute(peerId);
   }
   setRealtimePeer(peerId, connected) {
     if (!peerId) return;
     const id4 = String(peerId);
+    const now = Date.now();
+    const route = this.ensureVoiceRoute(id4, now);
     if (connected) {
-      this.realtimePeers.set(id4, Date.now());
+      this.realtimePeers.set(id4, now);
+      if (!route.connected) route.connectedSince = now;
+      route.connected = true;
+      route.unhealthySince = 0;
+      if (route.mode === "relay-active") this.setVoiceRouteMode(id4, route, "webrtc-recovering", now);
     } else {
       this.realtimePeers.delete(id4);
+      if (route.connected || !route.unhealthySince) route.unhealthySince = now;
+      route.connected = false;
+      route.connectedSince = 0;
+      if (route.mode === "webrtc-primary") this.setVoiceRouteMode(id4, route, "relay-pending", now);
+      if (route.mode === "webrtc-recovering") this.setVoiceRouteMode(id4, route, "relay-active", now);
     }
+    this.refreshVoiceRoute(id4, now);
   }
   realtimePeerCount() {
     return Array.from(this.realtimePeers.keys()).filter((peerId) => this.expectedRemotePeers.has(peerId)).length;
   }
   relayTargetIds() {
-    return Array.from(this.expectedRemotePeers);
+    return Array.from(this.expectedRemotePeers).filter((peerId) => {
+      const route = this.refreshVoiceRoute(peerId);
+      return route && ["relay-active", "webrtc-recovering"].includes(route.mode);
+    });
+  }
+  ensureVoiceRoute(peerId, now = Date.now()) {
+    const id4 = String(peerId || "");
+    if (!id4) return null;
+    let route = this.voiceRoutes.get(id4);
+    if (!route) {
+      route = {
+        mode: "relay-pending",
+        connected: false,
+        connectedSince: 0,
+        unhealthySince: now,
+        relaySince: 0,
+        changedAt: now
+      };
+      this.voiceRoutes.set(id4, route);
+    }
+    return route;
+  }
+  refreshVoiceRoute(peerId, now = Date.now()) {
+    const id4 = String(peerId || "");
+    const route = this.ensureVoiceRoute(id4, now);
+    if (!route) return null;
+    if (route.mode === "relay-pending") {
+      if (route.connected && now - route.connectedSince >= 1200) {
+        this.setVoiceRouteMode(id4, route, "webrtc-primary", now);
+      } else if (!route.connected && now - route.unhealthySince >= 5e3) {
+        this.setVoiceRouteMode(id4, route, "relay-active", now);
+      }
+    } else if (route.mode === "relay-active" && route.connected) {
+      this.setVoiceRouteMode(id4, route, "webrtc-recovering", now);
+    } else if (route.mode === "webrtc-recovering") {
+      if (!route.connected) {
+        this.setVoiceRouteMode(id4, route, "relay-active", now);
+      } else if (now - route.connectedSince >= 5e3 && now - route.relaySince >= 15e3) {
+        this.setVoiceRouteMode(id4, route, "webrtc-primary", now);
+      }
+    }
+    return route;
+  }
+  setVoiceRouteMode(peerId, route, mode, now = Date.now()) {
+    if (!route || route.mode === mode) return;
+    route.mode = mode;
+    route.changedAt = now;
+    if (mode === "relay-active" && !route.relaySince) route.relaySince = now;
+    if (mode === "webrtc-primary") route.relaySince = 0;
+    this.applyVoiceRouteOutput(peerId, route);
+  }
+  applyVoiceRouteOutput(peerId, route = this.voiceRoutes.get(String(peerId || ""))) {
+    if (!route) return;
+    const relayPlaying = ["relay-active", "webrtc-recovering"].includes(route.mode);
+    const audio = this.remoteAudios.get(String(peerId || ""));
+    if (audio) {
+      audio.muted = relayPlaying;
+      if (!relayPlaying) this.playRemoteAudio(audio);
+    }
+    if (!relayPlaying) this.stopRelayPlayback(peerId);
   }
   createProcessedStream(inputStream) {
     this.audioContext = this.ensureAudioContext();
@@ -5442,6 +5529,17 @@ var VoiceManager = class extends EventTarget {
         lastAudibleAt: Number(meter.lastAudibleAt || 0)
       };
     }
+    const routes = {};
+    for (const [peerId, route] of this.voiceRoutes) {
+      routes[peerId] = {
+        mode: route.mode,
+        connected: route.connected,
+        connectedSince: Number(route.connectedSince || 0),
+        unhealthySince: Number(route.unhealthySince || 0),
+        relaySince: Number(route.relaySince || 0),
+        changedAt: Number(route.changedAt || 0)
+      };
+    }
     return {
       enabled: this.enabled,
       synthetic: Boolean(this.syntheticCapture),
@@ -5458,6 +5556,7 @@ var VoiceManager = class extends EventTarget {
       voiceBytesReceived: this.voiceBytesReceived,
       lastRelaySentAt: this.lastRelaySentAt,
       lastRelayReceivedAt: this.lastRelayReceivedAt,
+      routes,
       inputTrack: inputTrack && {
         id: inputTrack.id,
         enabled: inputTrack.enabled,
@@ -40214,7 +40313,6 @@ function wireWebRTC() {
     if (selfId) ui.setSpeaking(selfId, event.detail.speaking);
   });
   mesh.addEventListener("remote-stream", (event) => {
-    voice.setRealtimePeer(event.detail.peerId, true);
     voice.attachRemoteStream(event.detail.peerId, event.detail.stream);
     updateVoiceConnectionStatus();
   });
@@ -40225,7 +40323,6 @@ function wireWebRTC() {
     updateVoiceConnectionStatus(event.detail?.summary);
   });
   mesh.addEventListener("peer-open", (event) => {
-    if (event.detail?.peerId) voice.setRealtimePeer(event.detail.peerId, true);
     if (uploader.meta) {
       mesh.broadcastJSON({ kind: "source-ready", meta: uploader.meta });
     }

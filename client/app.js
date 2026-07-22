@@ -701,7 +701,6 @@ function wireWebRTC() {
   });
 
   mesh.addEventListener("remote-stream", (event) => {
-    voice.setRealtimePeer(event.detail.peerId, true);
     voice.attachRemoteStream(event.detail.peerId, event.detail.stream);
     updateVoiceConnectionStatus();
   });
@@ -714,7 +713,6 @@ function wireWebRTC() {
   });
 
   mesh.addEventListener("peer-open", (event) => {
-    if (event.detail?.peerId) voice.setRealtimePeer(event.detail.peerId, true);
     if (uploader.meta) {
       mesh.broadcastJSON({ kind: "source-ready", meta: uploader.meta });
     }

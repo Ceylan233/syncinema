@@ -327,6 +327,16 @@ export class PeerMesh extends EventTarget {
       peer.pc.addTransceiver("audio", {
         direction: this.localStream?.getAudioTracks?.()[0] ? "sendrecv" : "recvonly"
       });
+    if (!existing && typeof peer.audioTransceiver.setCodecPreferences === "function") {
+      const codecs = globalThis.RTCRtpReceiver?.getCapabilities?.("audio")?.codecs || [];
+      const opus = codecs.filter((codec) => codec.mimeType?.toLowerCase() === "audio/opus");
+      if (opus.length > 0) {
+        peer.audioTransceiver.setCodecPreferences([
+          ...opus,
+          ...codecs.filter((codec) => codec.mimeType?.toLowerCase() !== "audio/opus")
+        ]);
+      }
+    }
     return peer.audioTransceiver;
   }
 
