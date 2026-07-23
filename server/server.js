@@ -11,6 +11,7 @@ const attachSocketHandlers = require("./socket");
 const { isBilibiliUrl, resolveBilibiliStream, resolveBilibiliUrl } = require("./bilibili");
 const { createSensitiveFilter } = require("./sensitive");
 const { SharedSegmentCache } = require("./segment-cache");
+const { SharedRangeCache } = require("./range-cache");
 
 const app = express();
 function readHttpsOptions() {
@@ -84,6 +85,15 @@ const vodSegmentCache = new SharedSegmentCache({
   maxItemBytes: 16 * 1024 * 1024,
   ttlMs: 30 * 60 * 1000,
   timeoutMs: 20000
+});
+const bilibiliVodRangeCache = new SharedRangeCache({
+  headersFor: sourceHeaders,
+  blockBytes: 4 * 1024 * 1024,
+  startupLimitBytes: 12 * 1024 * 1024,
+  maxEntries: 16,
+  maxBytes: 64 * 1024 * 1024,
+  ttlMs: 10 * 60 * 1000,
+  timeoutMs: 12000
 });
 const SENSITIVE_ADMIN_ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
 const SENSITIVE_ADMIN_MAX_FAILURES = 8;
@@ -706,6 +716,30 @@ app.get("/api/bilibili/video/stream", async (req, res) => {
       ? resolved.mediaUrls
       : [resolved.mediaUrl];
     const lineIndex = Math.min(mediaUrls.length - 1, Math.max(0, Number(req.query.line) || 0));
+    try {
+      const cachedRange = await bilibiliVodRangeCache.get(
+        mediaUrls[lineIndex],
+        referer,
+        req.headers.range
+      );
+      if (cachedRange) {
+        res.status(206);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Cache-Control", "private, max-age=120, stale-while-revalidate=30, no-transform");
+        res.setHeader("Content-Type", cachedRange.contentType);
+        res.setHeader("Content-Length", String(cachedRange.buffer.length));
+        res.setHeader(
+          "Content-Range",
+          `bytes ${cachedRange.start}-${cachedRange.end}/${cachedRange.total || "*"}`
+        );
+        res.setHeader("X-Syncinema-Cache", cachedRange.cacheStatus);
+        res.setHeader("X-Accel-Buffering", "no");
+        res.send(cachedRange.buffer);
+        return;
+      }
+    } catch (error) {
+      console.warn("Bilibili startup range cache failed", error?.message || error);
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     const abortPendingFetch = () => controller.abort();
