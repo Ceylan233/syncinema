@@ -8,7 +8,7 @@
     "start": "node server/server.js",
     "deploy": "npm ci && npm run build:client && npm start",
     "dev": "node server/server.js",
-    "build:client": "node scripts/copy-noise-suppressor-assets.mjs && esbuild client/app.js --bundle --format=esm --platform=browser --target=es2020 --charset=utf8 --define:__VUE_OPTIONS_API__=true --define:__VUE_PROD_DEVTOOLS__=false --define:__VUE_PROD_HYDRATION_MISMATCH_DETAILS__=false --outfile=client/dist/app.bundle.js",
+    "build:client": "node scripts/copy-noise-suppressor-assets.mjs && esbuild client/app.js --bundle --minify --format=esm --platform=browser --target=es2020 --charset=utf8 --define:__VUE_OPTIONS_API__=true --define:__VUE_PROD_DEVTOOLS__=false --define:__VUE_PROD_HYDRATION_MISMATCH_DETAILS__=false --outfile=client/dist/app.bundle.js",
     "build:sensitive": "node scripts/build-sensitive-dictionary.js",
     "import:sensitive": "node scripts/import-sensitive-dictionary.js",
     "test": "node scripts/test-clock-sync.mjs && node scripts/test-voice.mjs && node scripts/test-owner-autoplay.mjs && node scripts/test-playback-sync.js && node scripts/test-sync-controller.mjs && node scripts/test-timeline-sync.js && node scripts/test-bilibili.js && node scripts/test-sensitive-filter.js && node scripts/test-live-playback.mjs && node scripts/test-source-manager.mjs && node scripts/test-segment-cache.js",
