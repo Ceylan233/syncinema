@@ -66,6 +66,30 @@ assert.equal(player.switchToNextLiveLine(), true);
 assert.equal(switchedLine, "/line-2.m3u8");
 assert.equal(player.switchToNextLiveLine(), false);
 
+const vodQualities = [
+  { value: "80", quality: 80, label: "1080P", playUrl: "/video?qn=80" },
+  { value: "64", quality: 64, label: "720P", playUrl: "/video?qn=64" },
+  { value: "32", quality: 32, label: "480P", playUrl: "/video?qn=32" },
+  { value: "16", quality: 16, label: "360P", playUrl: "/video?qn=16" }
+];
+player.meta = { quality: 80 };
+assert.equal(player.selectAutomaticVodQuality(vodQualities, { effectiveType: "4g", downlink: 10 }).quality, 80);
+assert.equal(player.selectAutomaticVodQuality(vodQualities, { effectiveType: "4g", downlink: 4 }).quality, 64);
+assert.equal(player.selectAutomaticVodQuality(vodQualities, { effectiveType: "3g", downlink: 8 }).quality, 32);
+assert.equal(player.selectAutomaticVodQuality(vodQualities, { saveData: true, downlink: 10 }).quality, 16);
+player.meta = { provider: "bilibili", live: false, quality: 80, qualities: vodQualities };
+player.vodAutoQuality = true;
+player.vodCurrentQualityValue = "80";
+player.vodLastQualitySwitchAt = 0;
+let adaptiveTarget = null;
+player.switchDirectVodQuality = (quality, options) => {
+  adaptiveTarget = { quality, options };
+  return true;
+};
+assert.equal(player.switchToLowerAutomaticVodQuality(), true);
+assert.equal(adaptiveTarget.quality.quality, 64);
+assert.equal(adaptiveTarget.options.automatic, true);
+
 player.onlineSourceToken = 7;
 player.meta = { id: "live-test", live: true, provider: "bilibili" };
 player.liveLineOptions = ["/old-line.m3u8"];

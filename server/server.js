@@ -706,7 +706,21 @@ app.get("/api/bilibili/video/stream", async (req, res) => {
       ? resolved.mediaUrls
       : [resolved.mediaUrl];
     const lineIndex = Math.min(mediaUrls.length - 1, Math.max(0, Number(req.query.line) || 0));
-    const upstream = await fetch(mediaUrls[lineIndex], { headers, redirect: "follow" });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    const abortPendingFetch = () => controller.abort();
+    res.once("close", abortPendingFetch);
+    let upstream;
+    try {
+      upstream = await fetch(mediaUrls[lineIndex], {
+        headers,
+        redirect: "follow",
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+      res.off("close", abortPendingFetch);
+    }
     res.status(upstream.status);
     ["content-type", "content-length", "content-range", "accept-ranges"].forEach((name) => {
       const value = upstream.headers.get(name);

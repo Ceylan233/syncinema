@@ -79,6 +79,9 @@ export class CinemaPlayer extends EventTarget {
     this.vodPlayUrl = "";
     this.vodLineOptions = [];
     this.vodLineIndex = -1;
+    this.vodAutoQuality = false;
+    this.vodCurrentQualityValue = "";
+    this.vodLastQualitySwitchAt = 0;
     this.bufferingUiTimer = null;
     this.lastVisiblePlaybackTime = 0;
     this.audioRestoreTimers = [];
@@ -346,6 +349,7 @@ export class CinemaPlayer extends EventTarget {
         if (this.meta && !this.video.paused && hasStopped) this.ui.setSyncing(true, "正在缓冲...");
       }, 900);
     });
+    this.video.addEventListener("stalled", () => this.handleVodWaiting());
     this.video.addEventListener("loadeddata", () => {
       this.restoreEffectiveVolume();
       this.retryRemoteAutoplay("loadeddata");
@@ -589,6 +593,9 @@ export class CinemaPlayer extends EventTarget {
     this.vodPlayUrl = "";
     this.vodLineOptions = [];
     this.vodLineIndex = -1;
+    this.vodAutoQuality = false;
+    this.vodCurrentQualityValue = "";
+    this.vodLastQualitySwitchAt = 0;
     this.video.loop = Boolean(meta.loop);
     this.ui.setNowPlaying?.(meta.name || "网络点播");
     this.ui.setLivePlayback?.(Boolean(meta.live));
@@ -600,7 +607,12 @@ export class CinemaPlayer extends EventTarget {
     const qualities = Array.isArray(meta.qualities) ? meta.qualities.filter((item) => item?.playUrl) : [];
     const savedQuality = localStorage.getItem(`pc:quality:${meta.provider || "online"}`) || "auto";
     const selectedQuality = qualities.find((item) => String(item.value) === savedQuality);
-    const playUrl = selectedQuality?.playUrl || meta.playUrl || meta.url || "";
+    const automaticQuality = !selectedQuality && meta.provider === "bilibili" && !meta.live
+      ? this.selectAutomaticVodQuality(qualities)
+      : null;
+    this.vodAutoQuality = Boolean(automaticQuality);
+    this.vodCurrentQualityValue = String((selectedQuality || automaticQuality)?.value || "");
+    const playUrl = selectedQuality?.playUrl || automaticQuality?.playUrl || meta.playUrl || meta.url || "";
     if (!playUrl) return;
     if (meta.kind !== "hls" && qualities.length) {
       this.ui.setQualityOptions(
@@ -854,44 +866,91 @@ export class CinemaPlayer extends EventTarget {
     return true;
   }
 
-  async selectBestBilibiliVodLine(playUrl, meta, sourceToken) {
-    const count = Math.min(6, Math.max(1, Number(meta.lineCount || 1)));
-    if (count <= 1 || !String(playUrl).includes("/api/bilibili/video/stream")) return playUrl;
-    const results = [];
-    for (let index = 0; index < count; index += 1) {
-      const result = await this.probeBilibiliVodLine(playUrl, index);
-      if (result) results.push(result);
-      if (sourceToken !== this.onlineSourceToken) return playUrl;
+  selectAutomaticVodQuality(qualities, connection = globalThis.navigator?.connection || {}) {
+    const available = [...(Array.isArray(qualities) ? qualities : [])]
+      .filter((item) => item?.playUrl)
+      .sort((left, right) => Number(right.quality || right.value || 0) - Number(left.quality || left.value || 0));
+    if (!available.length) return null;
+
+    const effectiveType = String(connection?.effectiveType || "").toLowerCase();
+    const downlink = Number(connection?.downlink || 0);
+    let maximumQuality = Infinity;
+    if (connection?.saveData || effectiveType === "slow-2g" || effectiveType === "2g") maximumQuality = 16;
+    else if (effectiveType === "3g" || (downlink > 0 && downlink < 3)) maximumQuality = 32;
+    else if (downlink > 0 && downlink < 6) maximumQuality = 64;
+
+    if (Number.isFinite(maximumQuality)) {
+      return available.find((item) => Number(item.quality || item.value || 0) <= maximumQuality) || available.at(-1);
     }
-    results.sort((left, right) => left.score - right.score);
-    if (sourceToken !== this.onlineSourceToken || !results.length) return playUrl;
-    this.vodLineOptions = results.map((item) => item.url);
-    this.vodLineIndex = 0;
-    this.ui.setTransfer?.(`点播自动线路 ${results[0].index + 1}`, 100);
-    return results[0].url;
+    const resolvedQuality = Number(this.meta?.quality || 0);
+    return available.find((item) => Number(item.quality || item.value || 0) === resolvedQuality) || available[0];
   }
 
-  async probeBilibiliVodLine(playUrl, index) {
-    const url = new URL(playUrl, window.location.href);
-    url.searchParams.set("line", String(index));
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 5000);
-    const startedAt = performance.now();
-    try {
-      const response = await fetch(`${url.pathname}${url.search}`, {
-        cache: "no-store",
-        headers: { Range: "bytes=0-524287" },
-        signal: controller.signal
-      });
-      if (!response.ok) return null;
-      const bytes = (await response.arrayBuffer()).byteLength;
-      const elapsed = Math.max(1, performance.now() - startedAt);
-      return { index, url: `${url.pathname}${url.search}`, score: elapsed * (524288 / Math.max(65536, bytes)) };
-    } catch {
-      return null;
-    } finally {
-      window.clearTimeout(timer);
+  switchToLowerAutomaticVodQuality() {
+    if (!this.vodAutoQuality || this.meta?.provider !== "bilibili" || this.meta?.live) return false;
+    if (Date.now() - this.vodLastQualitySwitchAt < 3500) return false;
+    const qualities = [...(Array.isArray(this.meta?.qualities) ? this.meta.qualities : [])]
+      .filter((item) => item?.playUrl)
+      .sort((left, right) => Number(right.quality || right.value || 0) - Number(left.quality || left.value || 0));
+    const currentQuality = Number(this.vodCurrentQualityValue || this.meta?.quality || 0);
+    const next = qualities.find((item) => Number(item.quality || item.value || 0) < currentQuality);
+    if (!next) return false;
+    return this.switchDirectVodQuality(next, { automatic: true });
+  }
+
+  switchDirectVodQuality(selected, { automatic = false } = {}) {
+    if (!selected?.playUrl || !this.meta) return false;
+    const restoreTime = Number(this.video.currentTime || 0);
+    const resume = !this.video.paused || this.expectedRemotePlaying || this.remoteAutoplayWanted;
+    const switchStartedAt = Date.now();
+    const token = ++this.onlineSourceToken;
+    const targetUrl = this.selectBestBilibiliVodLine(selected.playUrl, this.meta, token);
+    this.vodCurrentQualityValue = String(selected.value);
+    this.vodLastQualitySwitchAt = Date.now();
+    this.vodWaitingTimes = [];
+    window.clearTimeout(this.vodWaitingTimer);
+    this.vodWaitingTimer = null;
+    this.applyingRemote = true;
+    this.restoreAfterMetadata = restoreTime;
+    this.video.pause();
+    this.video.src = targetUrl;
+    this.video.load();
+    this.video.addEventListener("loadedmetadata", () => {
+      if (token !== this.onlineSourceToken) return;
+      if (Number.isFinite(restoreTime)) {
+        const elapsed = resume ? (Date.now() - switchStartedAt) / 1000 * Number(this.video.playbackRate || 1) : 0;
+        const resumeTime = restoreTime + elapsed;
+        this.setProgrammaticCurrentTime(Math.min(resumeTime, this.video.duration || resumeTime));
+      }
+      if (resume) this.playRemoteWithFallback().catch(() => {});
+      window.setTimeout(() => {
+        if (token === this.onlineSourceToken) this.applyingRemote = false;
+      }, 150);
+    }, { once: true });
+    window.setTimeout(() => {
+      if (token === this.onlineSourceToken) this.applyingRemote = false;
+    }, 12000);
+    if (automatic) this.ui.setTransfer?.(`网络较慢，自动切换至 ${selected.label}`, 100);
+    return true;
+  }
+
+  selectBestBilibiliVodLine(playUrl, meta, sourceToken) {
+    const count = Math.min(6, Math.max(1, Number(meta.lineCount || 1)));
+    if (count <= 1 || !String(playUrl).includes("/api/bilibili/video/stream")) {
+      this.vodLineOptions = [playUrl];
+      this.vodLineIndex = 0;
+      return playUrl;
     }
+    if (sourceToken !== this.onlineSourceToken) return playUrl;
+    const savedLine = Math.min(count - 1, Math.max(0, Number(localStorage.getItem("pc:bilibili-vod-line")) || 0));
+    const indexes = [savedLine, ...Array.from({ length: count }, (_, index) => index).filter((index) => index !== savedLine)];
+    this.vodLineOptions = indexes.map((index) => {
+      const url = new URL(playUrl, window.location.href);
+      url.searchParams.set("line", String(index));
+      return `${url.pathname}${url.search}`;
+    });
+    this.vodLineIndex = 0;
+    return this.vodLineOptions[0];
   }
 
   switchToNextVodLine() {
@@ -907,6 +966,12 @@ export class CinemaPlayer extends EventTarget {
       this.setProgrammaticCurrentTime(Math.min(restoreTime, this.video.duration || restoreTime));
       if (resume) this.playRemoteWithFallback().catch(() => {});
     }, { once: true });
+    try {
+      const line = new URL(this.vodLineOptions[nextIndex], window.location.href).searchParams.get("line");
+      if (line !== null) localStorage.setItem("pc:bilibili-vod-line", line);
+    } catch {
+      // Keep playback working when a custom relative URL cannot be parsed.
+    }
     this.ui.setTransfer?.(`点播切换线路 ${nextIndex + 1}`, 100);
     return true;
   }
@@ -924,7 +989,7 @@ export class CinemaPlayer extends EventTarget {
     this.vodWaitingTimer = window.setTimeout(() => {
       if (this.video.paused || this.video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return;
       if (this.hls) this.switchVodHlsToRelay();
-      else this.switchToNextVodLine();
+      else if (!this.switchToLowerAutomaticVodQuality()) this.switchToNextVodLine();
     }, 4500);
   }
 
@@ -1130,6 +1195,8 @@ export class CinemaPlayer extends EventTarget {
     this.bufferingUiTimer = null;
     window.clearTimeout(this.liveWaitingTimer);
     this.liveWaitingTimer = null;
+    window.clearTimeout(this.vodWaitingTimer);
+    this.vodWaitingTimer = null;
     window.clearInterval(this.liveHealthTimer);
     this.liveHealthTimer = null;
     this.destroyFlvPlayback();
@@ -1194,48 +1261,23 @@ export class CinemaPlayer extends EventTarget {
   applyDirectQualitySelection(value) {
     const qualities = Array.isArray(this.meta?.qualities) ? this.meta.qualities.filter((item) => item?.playUrl) : [];
     if (!qualities.length) return;
-    const selected = value === "auto"
-      ? null
+    const automatic = value === "auto" && this.meta?.provider === "bilibili" && !this.meta?.live;
+    const selected = automatic
+      ? this.selectAutomaticVodQuality(qualities)
       : qualities.find((item) => String(item.value) === String(value));
-    const playUrl = selected?.playUrl || this.meta.playUrl || this.meta.url || "";
-    if (!playUrl) return;
+    if (!selected?.playUrl) return;
 
-    const currentUrl = new URL(this.video.currentSrc || this.video.src || "", window.location.href).href;
-    const targetUrl = new URL(playUrl, window.location.href).href;
-    const storedValue = selected ? String(selected.value) : "auto";
+    const storedValue = automatic ? "auto" : String(selected.value);
     localStorage.setItem(`pc:quality:${this.meta.provider || "online"}`, storedValue);
-    if (currentUrl === targetUrl) {
-      this.ui.setQualityOptions(
-        [{ value: "auto", label: "自动" }, ...qualities.map((item) => ({ value: String(item.value), label: item.label }))],
-        storedValue,
-        false
-      );
-      return;
-    }
-
-    const restoreTime = Number(this.video.currentTime || 0);
-    const resume = !this.video.paused || this.expectedRemotePlaying || this.remoteAutoplayWanted;
-    const token = ++this.onlineSourceToken;
-    this.applyingRemote = true;
-    this.restoreAfterMetadata = restoreTime;
-    this.video.pause();
-    this.video.src = playUrl;
-    this.video.load();
+    const modeChanged = this.vodAutoQuality !== automatic;
+    this.vodAutoQuality = automatic;
     this.ui.setQualityOptions(
       [{ value: "auto", label: "自动" }, ...qualities.map((item) => ({ value: String(item.value), label: item.label }))],
-      selected ? String(selected.value) : "auto",
+      storedValue,
       false
     );
-    this.video.addEventListener("loadedmetadata", () => {
-      if (token !== this.onlineSourceToken) return;
-      if (Number.isFinite(restoreTime)) {
-        this.setProgrammaticCurrentTime(Math.min(restoreTime, this.video.duration || restoreTime));
-      }
-      if (resume) this.playRemoteWithFallback().catch(() => {});
-      window.setTimeout(() => {
-        if (token === this.onlineSourceToken) this.applyingRemote = false;
-      }, 150);
-    }, { once: true });
+    if (!modeChanged && String(selected.value) === this.vodCurrentQualityValue) return;
+    this.switchDirectVodQuality(selected);
   }
 
   currentQualityOptions() {
