@@ -1,5 +1,3 @@
-import { MP4Remuxer } from "./mp4remuxer.js";
-
 const REQUEST_RETRY_MS = 1200;
 const PLAYING_BUFFER_AHEAD = 35;
 const PAUSED_BUFFER_AHEAD = 8;
@@ -105,9 +103,19 @@ export class P2PDownloader extends EventTarget {
     this.completeUrl = null;
   }
 
-  preparePlayback(meta) {
+  async preparePlayback(meta) {
     if (this.prepareServerRangePlayback(meta)) return;
 
+    let MP4Remuxer;
+    try {
+      ({ MP4Remuxer } = await import("./mp4remuxer.js"));
+    } catch (error) {
+      console.warn("Loading MP4 remuxer failed", error);
+      if (this.meta?.id === meta.id) this.prepareMediaSource(meta);
+      return;
+    }
+
+    if (this.meta?.id !== meta.id || this.rangeStreaming) return;
     this.remuxer = new MP4Remuxer(this.video, this.ui);
     if (this.remuxer.start(meta)) {
       this.streamable = true;
