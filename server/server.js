@@ -89,6 +89,7 @@ const vodSegmentCache = new SharedSegmentCache({
 const bilibiliVodRangeCache = new SharedRangeCache({
   headersFor: sourceHeaders,
   blockBytes: 1 * 1024 * 1024,
+  responseBytes: 4 * 1024 * 1024,
   startupLimitBytes: Number.MAX_SAFE_INTEGER,
   maxEntries: 64,
   maxBytes: 64 * 1024 * 1024,
@@ -1346,6 +1347,11 @@ app.use(
     }
   })
 );
+
+app.get("/s", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.sendFile(path.join(clientDir, "speed-test.html"));
+});
 
 app.get("*", (_req, res) => {
   res.setHeader("Cache-Control", "no-store");

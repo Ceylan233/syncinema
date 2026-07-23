@@ -5,6 +5,7 @@
   const latencyText = document.getElementById("latency");
   const jitterText = document.getElementById("jitter");
   const downloadText = document.getElementById("download");
+  const parallelDownloadText = document.getElementById("parallelDownload");
   const uploadText = document.getElementById("upload");
   const verdictText = document.getElementById("verdictText");
   const hostText = document.getElementById("hostText");
@@ -92,6 +93,46 @@
     return formatMbps(bytes, Math.min(performance.now() - started, sampleMs));
   }
 
+  async function measureParallelDownload(connections = 4) {
+    const sampleMs = 8000;
+    const controller = new AbortController();
+    const started = performance.now();
+    let bytes = 0;
+    const timer = setTimeout(() => controller.abort(), sampleMs);
+    try {
+      const workers = Array.from({ length: connections }, async (_, index) => {
+        let reader = null;
+        try {
+          const response = await fetch(
+            `/api/speed/download?mb=64&t=${Date.now()}-${connections}-${index}`,
+            { cache: "no-store", signal: controller.signal }
+          );
+          if (!response.ok || !response.body) throw new Error("download unavailable");
+          reader = response.body.getReader();
+          while (performance.now() - started < sampleMs) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            bytes += value.byteLength;
+          }
+        } catch (error) {
+          if (error.name !== "AbortError") throw error;
+        } finally {
+          if (reader) {
+            try { await reader.cancel(); } catch (_error) { /* stream already closed */ }
+          }
+        }
+      });
+      const results = await Promise.allSettled(workers);
+      const failure = results.find((result) => result.status === "rejected");
+      if (failure) throw failure.reason;
+    } finally {
+      clearTimeout(timer);
+      controller.abort();
+    }
+    if (!bytes) throw new Error("download returned no data");
+    return formatMbps(bytes, Math.min(performance.now() - started, sampleMs));
+  }
+
   async function measureUpload() {
     async function sendSample(bytes, timeoutMs) {
       const chunk = new Uint8Array(bytes);
@@ -155,6 +196,7 @@
     latencyText.textContent = "-- ms";
     jitterText.textContent = "-- ms";
     downloadText.textContent = "-- Mbps";
+    parallelDownloadText.textContent = "-- Mbps";
     uploadText.textContent = "-- Mbps";
     verdictText.textContent = "测速进行中，请保持页面在前台。";
 
@@ -167,12 +209,21 @@
       setStatus("正在测下载", 56);
       const down = await measureDownload();
       downloadText.textContent = `${down.toFixed(1)} Mbps`;
+      setStatus("\u6b63\u5728\u6d4b\u8bd5\u56db\u8fde\u63a5\u4e0b\u8f7d", 70);
+      const parallelDown = await measureParallelDownload(4);
+      parallelDownloadText.textContent = `${parallelDown.toFixed(1)} Mbps`;
 
       setStatus("正在测上传", 82);
       const up = await measureUpload();
       uploadText.textContent = `${up.toFixed(1)} Mbps`;
 
-      const result = { latency: latency.avg, jitter: latency.jitter, download: down, upload: up };
+      const result = {
+        latency: latency.avg,
+        jitter: latency.jitter,
+        download: down,
+        parallelDownload: parallelDown,
+        upload: up
+      };
       verdictText.textContent = verdict(result);
       setStatus("测速完成", 100);
     } catch (error) {

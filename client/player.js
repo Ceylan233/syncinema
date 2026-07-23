@@ -77,6 +77,7 @@ export class CinemaPlayer extends EventTarget {
     this.vodWaitingTimes = [];
     this.vodWaitingTimer = null;
     this.vodPlayUrl = "";
+    this.parallelVod = null;
     this.vodLineOptions = [];
     this.vodLineIndex = -1;
     this.vodAutoQuality = false;
@@ -743,6 +744,10 @@ export class CinemaPlayer extends EventTarget {
       ? await this.selectBestBilibiliVodLine(playUrl, meta, sourceToken)
       : playUrl;
     if (sourceToken !== this.onlineSourceToken || this.meta?.id !== meta.id) return;
+    if (!meta.live && meta.provider === "bilibili") {
+      const parallelStarted = await this.startParallelBilibiliVod(meta, selectedVideoUrl, sourceToken);
+      if (parallelStarted) return;
+    }
     this.video.src = selectedVideoUrl;
     this.video.load();
     if (Array.isArray(meta.qualities) && meta.qualities.some((item) => item?.playUrl)) return;
@@ -900,9 +905,12 @@ export class CinemaPlayer extends EventTarget {
     this.vodWaitingTimer = null;
     this.applyingRemote = true;
     this.restoreAfterMetadata = restoreTime;
+    this.parallelVod?.destroy();
+    this.parallelVod = null;
     this.video.pause();
-    this.video.src = targetUrl;
+    this.video.removeAttribute("src");
     this.video.load();
+    this.attachOnlineSource(this.meta, targetUrl, token);
     this.video.addEventListener("loadedmetadata", () => {
       if (token !== this.onlineSourceToken) return;
       if (Number.isFinite(restoreTime)) {
@@ -939,6 +947,47 @@ export class CinemaPlayer extends EventTarget {
     });
     this.vodLineIndex = 0;
     return this.vodLineOptions[0];
+  }
+
+  async startParallelBilibiliVod(meta, playUrl, sourceToken) {
+    if (!("MediaSource" in window) || !String(playUrl).includes("/api/bilibili/video/stream")) return false;
+    try {
+      const { ParallelVodLoader } = await import("./parallel-vod.js");
+      if (sourceToken !== this.onlineSourceToken || this.meta?.id !== meta.id) return false;
+      const loader = new ParallelVodLoader(this.video, this.ui, () => {
+        if (this.parallelVod !== loader || sourceToken !== this.onlineSourceToken) return;
+        this.fallbackFromParallelBilibiliVod(playUrl, sourceToken);
+      });
+      const started = await loader.start(meta, playUrl);
+      if (!started || sourceToken !== this.onlineSourceToken || this.meta?.id !== meta.id) {
+        loader.destroy();
+        return false;
+      }
+      this.parallelVod = loader;
+      return true;
+    } catch (error) {
+      console.warn("Starting parallel Bilibili VOD failed", error);
+      return false;
+    }
+  }
+
+  fallbackFromParallelBilibiliVod(playUrl, sourceToken) {
+    if (sourceToken !== this.onlineSourceToken || !this.meta) return;
+    const restoreTime = Number(this.video.currentTime || 0);
+    const resume = !this.video.paused || this.expectedRemotePlaying || this.remoteAutoplayWanted;
+    const loader = this.parallelVod;
+    this.parallelVod = null;
+    loader?.destroy();
+    this.ui.setTransfer?.("四连接播放不兼容，已切回普通播放", 100);
+    this.video.src = playUrl;
+    this.video.load();
+    this.video.addEventListener("loadedmetadata", () => {
+      if (sourceToken !== this.onlineSourceToken) return;
+      if (Number.isFinite(restoreTime)) {
+        this.setProgrammaticCurrentTime(Math.min(restoreTime, this.video.duration || restoreTime));
+      }
+      if (resume) this.playRemoteWithFallback().catch(() => {});
+    }, { once: true });
   }
 
   switchToNextVodLine() {
@@ -1187,6 +1236,8 @@ export class CinemaPlayer extends EventTarget {
     this.vodWaitingTimer = null;
     window.clearInterval(this.liveHealthTimer);
     this.liveHealthTimer = null;
+    this.parallelVod?.destroy();
+    this.parallelVod = null;
     this.destroyFlvPlayback();
     if (this.hls) {
       try {

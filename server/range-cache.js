@@ -46,6 +46,7 @@ class SharedRangeCache {
     this.fetch = options.fetchImpl || fetch;
     this.headersFor = options.headersFor || (() => ({}));
     this.blockBytes = Math.max(1, Number(options.blockBytes || 4 * 1024 * 1024));
+    this.responseBytes = Math.max(this.blockBytes, Number(options.responseBytes || this.blockBytes));
     this.startupLimitBytes = Math.max(this.blockBytes, Number(options.startupLimitBytes || 12 * 1024 * 1024));
     this.maxEntries = Math.max(1, Number(options.maxEntries || 16));
     this.maxBytes = Math.max(this.blockBytes, Number(options.maxBytes || 64 * 1024 * 1024));
@@ -165,18 +166,46 @@ class SharedRangeCache {
     const blockStart = Math.floor(requested.start / this.blockBytes) * this.blockBytes;
     if (blockStart >= this.startupLimitBytes) return null;
 
-    const entry = await this.block(url, referer, blockStart);
-    if (requested.start < entry.start || requested.start > entry.end) return null;
-    const end = Math.min(requested.end ?? entry.end, entry.end);
-    const sliceStart = requested.start - entry.start;
-    const sliceEnd = end - entry.start + 1;
+    const first = await this.block(url, referer, blockStart);
+    if (requested.start < first.start || requested.start > first.end) return null;
+
+    const requestedEnd = requested.end ?? requested.start + this.responseBytes - 1;
+    const responseEnd = Math.min(
+      requestedEnd,
+      requested.start + this.responseBytes - 1,
+      Number.isSafeInteger(first.total) ? first.total - 1 : Number.MAX_SAFE_INTEGER
+    );
+    const lastBlockStart = Math.floor(responseEnd / this.blockBytes) * this.blockBytes;
+    const blockStarts = [];
+    for (let start = blockStart + this.blockBytes; start <= lastBlockStart; start += this.blockBytes) {
+      if (start >= this.startupLimitBytes) break;
+      blockStarts.push(start);
+    }
+    const remaining = await Promise.all(blockStarts.map((start) => this.block(url, referer, start)));
+    const entries = [first, ...remaining].sort((left, right) => left.start - right.start);
+    const slices = [];
+    let cursor = requested.start;
+    let cacheStatus = "HIT";
+    let total = first.total;
+    for (const entry of entries) {
+      if (entry.start > cursor || entry.end < cursor) break;
+      const end = Math.min(responseEnd, entry.end);
+      slices.push(entry.buffer.subarray(cursor - entry.start, end - entry.start + 1));
+      cursor = end + 1;
+      if (entry.cacheStatus === "MISS") cacheStatus = "MISS";
+      else if (entry.cacheStatus === "COALESCED" && cacheStatus === "HIT") cacheStatus = "COALESCED";
+      if (Number.isSafeInteger(entry.total)) total = entry.total;
+      if (cursor > responseEnd) break;
+    }
+    if (!slices.length) return null;
+    const buffer = slices.length === 1 ? slices[0] : Buffer.concat(slices);
     return {
-      buffer: entry.buffer.subarray(sliceStart, sliceEnd),
+      buffer,
       start: requested.start,
-      end,
-      total: entry.total,
-      contentType: entry.contentType,
-      cacheStatus: entry.cacheStatus
+      end: requested.start + buffer.length - 1,
+      total,
+      contentType: first.contentType,
+      cacheStatus
     };
   }
 

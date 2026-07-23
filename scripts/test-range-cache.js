@@ -46,6 +46,39 @@ async function run() {
   assert.deepStrictEqual(new Set([coalescedA.cacheStatus, coalescedB.cacheStatus]), new Set(["MISS", "COALESCED"]));
   assert.strictEqual(await cache.get("https://example.test/video.mp4", "", "bytes=8-"), null);
 
+  let windowFetchCount = 0;
+  const windowCache = new SharedRangeCache({
+    blockBytes: 4,
+    responseBytes: 12,
+    startupLimitBytes: 16,
+    maxEntries: 8,
+    maxBytes: 32,
+    fetchImpl: async (_url, options) => {
+      windowFetchCount += 1;
+      const match = /bytes=(\d+)-(\d+)/.exec(options.headers.Range);
+      const start = Number(match[1]);
+      return new Response(Buffer.from([start, start + 1, start + 2, start + 3]), {
+        status: 206,
+        headers: {
+          "Content-Type": "video/mp4",
+          "Content-Length": "4",
+          "Content-Range": `bytes ${start}-${start + 3}/16`
+        }
+      });
+    }
+  });
+
+  const windowMiss = await windowCache.get("https://example.test/video.mp4", "", "bytes=1-");
+  assert.strictEqual(windowMiss.cacheStatus, "MISS");
+  assert.deepStrictEqual([...windowMiss.buffer], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  assert.strictEqual(windowMiss.end, 12);
+  assert.strictEqual(windowFetchCount, 4);
+
+  const windowHit = await windowCache.get("https://example.test/video.mp4", "", "bytes=1-");
+  assert.strictEqual(windowHit.cacheStatus, "HIT");
+  assert.deepStrictEqual(windowHit.buffer, windowMiss.buffer);
+  assert.strictEqual(windowFetchCount, 4);
+
   console.log("Range cache tests passed");
 }
 
