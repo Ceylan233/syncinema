@@ -866,24 +866,12 @@ export class CinemaPlayer extends EventTarget {
     return true;
   }
 
-  selectAutomaticVodQuality(qualities, connection = globalThis.navigator?.connection || {}) {
+  selectAutomaticVodQuality(qualities) {
     const available = [...(Array.isArray(qualities) ? qualities : [])]
       .filter((item) => item?.playUrl)
       .sort((left, right) => Number(right.quality || right.value || 0) - Number(left.quality || left.value || 0));
     if (!available.length) return null;
-
-    const effectiveType = String(connection?.effectiveType || "").toLowerCase();
-    const downlink = Number(connection?.downlink || 0);
-    let maximumQuality = Infinity;
-    if (connection?.saveData || effectiveType === "slow-2g" || effectiveType === "2g") maximumQuality = 16;
-    else if (effectiveType === "3g" || (downlink > 0 && downlink < 3)) maximumQuality = 32;
-    else if (downlink > 0 && downlink < 6) maximumQuality = 64;
-
-    if (Number.isFinite(maximumQuality)) {
-      return available.find((item) => Number(item.quality || item.value || 0) <= maximumQuality) || available.at(-1);
-    }
-    const resolvedQuality = Number(this.meta?.quality || 0);
-    return available.find((item) => Number(item.quality || item.value || 0) === resolvedQuality) || available[0];
+    return available[0];
   }
 
   switchToLowerAutomaticVodQuality() {

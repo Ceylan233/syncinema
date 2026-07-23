@@ -88,9 +88,9 @@ const vodSegmentCache = new SharedSegmentCache({
 });
 const bilibiliVodRangeCache = new SharedRangeCache({
   headersFor: sourceHeaders,
-  blockBytes: 4 * 1024 * 1024,
-  startupLimitBytes: 12 * 1024 * 1024,
-  maxEntries: 16,
+  blockBytes: 1 * 1024 * 1024,
+  startupLimitBytes: Number.MAX_SAFE_INTEGER,
+  maxEntries: 64,
   maxBytes: 64 * 1024 * 1024,
   ttlMs: 10 * 60 * 1000,
   timeoutMs: 12000
